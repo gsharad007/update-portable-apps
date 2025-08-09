@@ -1,0 +1,76 @@
+[
+  {
+    "name": "Rufus",
+    "github_repo": "pbatard/rufus",
+    "asset_regex": "rufus-[0-9.]+p?\\.exe$",
+    "install_dir": "~/PortableApps/Rufus"
+  },
+  {
+    "name": "VSCode",
+    "github_repo": "portapps/vscode-portable",
+    "asset_regex": "vscode-portable-win64\\.exe$",
+    "install_dir": "~/PortableApps/VSCode"
+  },
+  {
+    "name": "FanControl",
+    "github_repo": "Rem0o/FanControl.Releases",
+    "asset_regex": "FanControl_.*_net_.*\\.zip$",
+    "install_dir": "~/PortableApps/FanControl"
+  },
+  {
+    "name": "OpenRGB",
+    "github_repo": "CalcProgrammer1/OpenRGB",
+    "asset_regex": "OpenRGB_.*Windows_64.*\\.zip$",
+    "install_dir": "~/PortableApps/OpenRGB"
+  },
+  {
+    "name": "Ventoy",
+    "github_repo": "ventoy/Ventoy",
+    "asset_regex": "ventoy-.*-windows\\.zip$",
+    "install_dir": "~/PortableApps/Ventoy"
+  },
+  {
+    "name": "SysinternalsSuite",
+    "url": "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+    "install_dir": "~/PortableApps/Sysinternals"
+  },
+  {
+    "name": "CPU-Z",
+    "url": "https://download.cpuid.com/cpu-z/cpu-z_2.16-en.zip",
+    "install_dir": "~/PortableApps/CPU-Z"
+  },
+  {
+    "name": "CrystalDiskInfo",
+    "github_repo": "hiyohiyo/CrystalDiskInfo",
+    "asset_regex": "CrystalDiskInfo.*x64.zip$",
+    "install_dir": "~/PortableApps/CrystalDiskInfo"
+  },
+  {
+    "name": "CrystalDiskMark",
+    "github_repo": "hiyohiyo/CrystalDiskMark",
+    "asset_regex": "CrystalDiskMark.*x64.*zip$",
+    "install_dir": "~/PortableApps/CrystalDiskMark"
+  },
+  {
+    "name": "OpenHardwareMonitor",
+    "github_repo": "HardwareMonitor/OpenHardwareMonitor",
+    "asset_regex": "openhardwaremonitor-v.*-binaries.zip$",
+    "install_dir": "~/PortableApps/OpenHardwareMonitor"
+  },
+  {
+    "name": "Notepad++",
+    "github_repo": "notepad-plus-plus/notepad-plus-plus",
+    "asset_regex": "npp\\..*\\.bin\\.minimalist\\.x64\\.zip$",
+    "install_dir": "~/PortableApps/Notepad++"
+  },
+  {
+    "name": "GSmartControl",
+    "url": "https://github.com/ashkamp/gsmartcontrol/releases/download/v1.1.3/gsmartcontrol-1.1.3-win64.zip",
+    "install_dir": "~/PortableApps/GSmartControl"
+  },
+  {
+    "name": "ImageMagick",
+    "url": "https://download.imagemagick.org/ImageMagick/download/binaries/ImageMagick-7.1.1-21-portable-Q16-x64.zip",
+    "install_dir": "~/PortableApps/ImageMagick"
+  }
+]
