@@ -26,30 +26,31 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import re
 import shutil
 import sys
 import tarfile
-import tempfile
 import time
+import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Iterator, List, Optional, Tuple
+from typing import Final, Iterator, List, Optional, Sequence, Tuple, TypeAlias
 
 import requests
 import py7zr
 from rich.console import Console
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
 from tqdm import tqdm
+
+__all__: Sequence[str] = (
+    "AppConfig",
+    "GrabPortablesError",
+    "ConfigError",
+    "AssetNotFoundError",
+    "DownloadError",
+    "main",
+)
 
 # ---------------------------------------------------------------------------
 # Logging & constants
@@ -59,6 +60,7 @@ LOG_FILE: Final[str] = "grab-portables.log"
 DEFAULT_CFG: Final[str] = "apps.json"
 DEFAULT_RETRIES: Final[int] = 3
 CHUNK: Final[int] = 8192
+TIMEOUT: Final[float] = 60.0  # seconds for HTTP
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -72,25 +74,27 @@ logging.basicConfig(
 logger: Final[logging.Logger] = logging.getLogger(__name__)
 console: Final[Console] = Console()
 
+UrlStr: TypeAlias = str
+
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
 
 
 class GrabPortablesError(Exception):
-    """Base-class for all script exceptions."""
+    """Root of all domain‑specific exceptions."""
 
 
 class ConfigError(GrabPortablesError):
-    pass
+    """Raised for malformed or inconsistent *apps.json* entries."""
 
 
 class AssetNotFoundError(GrabPortablesError):
-    pass
+    """Raised when no release asset matches the supplied regex."""
 
 
 class DownloadError(GrabPortablesError):
-    pass
+    """Raised after exhausting retries while downloading a file."""
 
 
 # ---------------------------------------------------------------------------
@@ -102,22 +106,28 @@ class DownloadError(GrabPortablesError):
 class AppConfig:
     name: str
     install_dir: str
-    github_repo: Optional[str] = None  # e.g. "pbatard/rufus"
-    asset_regex: Optional[str] = None  # e.g. "rufus-[0-9.]+p?\\.exe$"
-    url: Optional[str] = None  # direct-download URL
+    github_repo: Optional[str] = None  # owner/repo
+    gitlab_repo: Optional[str] = None  # group/project (URL‑slug form)
+    url: Optional[UrlStr] = None
+    page_url: Optional[UrlStr] = None
+    asset_regex: Optional[str] = None
 
-    # --- validation ------------------------------------------------------- #
-    def __post_init__(self) -> None:  # type: ignore[override]
-        if self.github_repo is None and self.url is None:
-            raise ConfigError(f"{self.name}: either github_repo or url is required")
-        if self.github_repo and self.url:
+    def __post_init__(self) -> None:  # noqa: D401
+        # Ensure exactly one download source
+        sources = [
+            self.github_repo,
+            self.gitlab_repo,
+            self.url,
+            self.page_url,
+        ]
+        if sum(x is not None for x in sources) != 1:
             raise ConfigError(
-                f"{self.name}: define *either* github_repo or url, not both"
+                f"{self.name}: specify exactly one of github_repo, gitlab_repo, url, or download_page_url"
             )
-        if self.github_repo and not self.asset_regex:
-            raise ConfigError(
-                f"{self.name}: asset_regex required when github_repo is set"
-            )
+        if (self.github_repo or self.gitlab_repo) and not self.asset_regex:
+            raise ConfigError(f"{self.name}: asset_regex required for VCS repos")
+        if self.page_url and not self.asset_regex:
+            raise ConfigError(f"{self.name}: asset_regex required for page scraping")
 
 
 # ---------------------------------------------------------------------------
@@ -125,49 +135,106 @@ class AppConfig:
 # ---------------------------------------------------------------------------
 
 
-def newest_github_asset(repo: str, pattern: str) -> Tuple[str, str]:
-    """Return (tag, asset_url) for the latest release whose asset name matches regex."""
-    logger.debug("Fetching GitHub release: %s", repo)
-    api_url: str = f"https://api.github.com/repos/{repo}/releases/latest"
-    r = requests.get(api_url, timeout=30)
-    if r.status_code != 200:
-        raise AssetNotFoundError(
-            f"GitHub API failed for {repo}: {r.status_code} {r.text[:200]}"
-        )
-    data = r.json()
-    tag: str = data.get("tag_name", "")
+def assert_never(value: Never) -> NoReturn:  # noqa: D401
+    _unused: Never = value
+    raise AssertionError("Unreachable code executed")
 
-    for asset in data.get("assets", []):
-        name: str = asset.get("name", "")
+
+# ----------------------------- GitHub ------------------------------------- #
+
+
+def newest_github_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
+    api: UrlStr = f"https://api.github.com/repos/{repo}/releases/latest"
+    logger.debug("GitHub API %s", api)
+    resp: requests.Response = requests.get(api, timeout=TIMEOUT)
+    if resp.status_code != 200:
+        raise AssetNotFoundError(f"GitHub {repo}: HTTP {resp.status_code}")
+
+    data: dict[str, object] = resp.json()
+    tag: str = str(data.get("tag_name", ""))
+    assets: List[dict[str, object]] = list(data.get("assets", []))  # type: ignore[arg-type]
+
+    for asset in assets:
+        name = str(asset.get("name", ""))
         if re.search(pattern, name, flags=re.I):
-            logger.debug("Matched asset %s for %s", name, repo)
-            return tag, asset["browser_download_url"]
+            url_field: object = asset.get("browser_download_url")
+            if isinstance(url_field, str):
+                return tag, url_field
+    raise AssetNotFoundError(f"No GitHub asset in {repo} matches /{pattern}/i")
 
-    raise AssetNotFoundError(f"No asset in {repo} matched /{pattern}/")
+
+# ----------------------------- GitLab ------------------------------------- #
+
+
+def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
+    # GitLab API expects URL‑encoded project path
+    proj: str = uparse.quote_plus(repo)
+    api: UrlStr = f"https://gitlab.com/api/v4/projects/{proj}/releases"
+    logger.debug("GitLab API %s", api)
+    resp: requests.Response = requests.get(api, timeout=TIMEOUT)
+    if resp.status_code != 200:
+        raise AssetNotFoundError(f"GitLab {repo}: HTTP {resp.status_code}")
+
+    releases: List[dict[str, object]] = resp.json()  # type: ignore[assignment]
+    if not releases:
+        raise AssetNotFoundError(f"GitLab {repo}: no releases")
+    latest: dict[str, object] = releases[0]
+    tag: str = str(latest.get("tag_name", ""))
+
+    assets: List[dict[str, object]] = list(latest.get("assets", {}).get("links", []))  # type: ignore[arg-type]
+    for asset in assets:
+        name: str = str(asset.get("name", ""))
+        if re.search(pattern, name, flags=re.I):
+            url_field: object = asset.get("url")
+            if isinstance(url_field, str):
+                return tag, url_field
+    raise AssetNotFoundError(f"No GitLab asset in {repo} matches /{pattern}/i")
+
+
+def newest_direct_asset(page_url: UrlStr, regex: str) -> Tuple[str, UrlStr]:
+    """Scrape *page_url* HTML and extract first href matching *regex*."""
+    resp = requests.get(page_url, timeout=TIMEOUT)
+    if resp.status_code != 200:
+        raise AssetNotFoundError(f"Page fetch {page_url}: HTTP {resp.status_code}")
+    html = resp.text
+    match = re.search(regex, html)
+    if not match:
+        raise AssetNotFoundError(f"No link in {page_url} matches /{regex}/i")
+    href = match.group(0)
+    full_url = uparse.urljoin(page_url, href)
+    # try to extract version from capture group 1
+    version = match.group(1) if len(match.groups()) >= 1 else ""
+    return version, full_url
+
+
+# ----------------------------- Download / extract ------------------------- #
 
 
 @contextmanager
-def download_temp(url: str, retries: int = DEFAULT_RETRIES) -> Iterator[Path]:
-    """Stream *url* into a temp-file with retries; yield its Path."""
-    tmp: Optional[Path] = None
+def download(
+    url: UrlStr,
+    download_dir: Path,
+    retries: int = DEFAULT_RETRIES,
+) -> Iterator[Path]:
+    """Download *url* into a temp-file under *download_dir*; yields Path."""
+
+    parsed: uparse.ParseResult = uparse.urlparse(url)
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    parsed = uparse.urlparse(url)
+    filename = Path(parsed.path).name or f"download{int(time.time())}"
+    dest = download_dir / filename
     last_exc: Optional[Exception] = None
 
     for attempt in range(1, retries + 1):
         try:
-            logger.debug("[%d/%d] Downloading %s", attempt, retries, url)
-            resp = requests.get(url, stream=True, timeout=60)
+            logger.debug("[%d/%d] GET %s", attempt, retries, url)
+            resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
             resp.raise_for_status()
-            filename: str = Path(resp.url).name or "download.bin"
-
-            # create an empty temp file path (works cross‑platform)
-            fd, tmp_name = tempfile.mkstemp(prefix="grab_", suffix=filename)
-            os.close(fd)
-            tmp = Path(tmp_name)
-
-            total: int = int(resp.headers.get("content-length", 0))
+            total = int(resp.headers.get("content-length", 0))
 
             with (
-                tmp.open("wb") as fh,
+                dest.open("wb") as fh,
                 tqdm(
                     total=total,
                     unit="B",
@@ -177,23 +244,21 @@ def download_temp(url: str, retries: int = DEFAULT_RETRIES) -> Iterator[Path]:
                 ) as bar,
             ):
                 for chunk in resp.iter_content(chunk_size=CHUNK):
-                    if chunk:
+                    if chunk:  # pragma: no branch — network may send keep‑alives
                         fh.write(chunk)
                         bar.update(len(chunk))
-            assert tmp.exists() and tmp.stat().st_size > 0, "Empty download?"
-            yield tmp
-            return  # success - exit generator
+
+            if dest.stat().st_size == 0:
+                raise DownloadError("Downloaded zero‑byte file")
+
+            return_value: Path = dest
+            yield return_value
+            return  # success
         except Exception as exc:
             last_exc = exc
-            logger.exception("Download attempt %d failed: %s", attempt, exc)
-            time.sleep(2**attempt)  # exponential backoff
-        finally:
-            if tmp and tmp.exists():
-                try:
-                    tmp.unlink()
-                except OSError:
-                    logger.warning("Temp cleanup failed for %s", tmp)
-    raise DownloadError(f"All retries failed for {url}") from last_exc
+            logger.warning("Download attempt %d failed: %s", attempt, exc)
+            time.sleep(2**attempt)
+    raise DownloadError(f"Retries exhausted for {url}") from last_exc
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -229,44 +294,54 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def process_app(cfg: AppConfig) -> None:
+def process_app(cfg: AppConfig, download_dir: Path) -> None:
     logger.info("Processing %s", cfg.name)
 
-    target_root: Path = Path(cfg.install_dir).expanduser().resolve()
-    target_root.mkdir(parents=True, exist_ok=True)
+    tag: Optional[str] = None
+    dl_url: Optional[UrlStr] = None
 
-    if cfg.github_repo:
-        tag, url = newest_github_asset(cfg.github_repo, cfg.asset_regex or ".*")
-        version_name: str = f"{cfg.name}_{tag}"
-    else:
-        url = cfg.url  # type: ignore[assignment]
-        tag = "direct"
-        version_name = cfg.name
+    if cfg.page_url is not None:
+        tag, dl_url = newest_direct_asset(cfg.page_url, cfg.asset_regex or "")
+    elif cfg.gitlab_repo is not None:
+        tag, dl_url = newest_gitlab_asset(cfg.gitlab_repo, cfg.asset_regex or ".*")
+    elif cfg.github_repo is not None:
+        tag, dl_url = newest_github_asset(cfg.github_repo, cfg.asset_regex or ".*")
+    elif cfg.url is not None:
+        dl_url = cfg.url
+    else:  # pragma: no cover – validation prevents
+        assert_never(cfg)  # type: ignore[arg-type]
 
-    dest_sub: Path = target_root / version_name
-    logger.debug("Destination folder: %s", dest_sub)
+    root: Path = download_dir
+    root.mkdir(parents=True, exist_ok=True)
+
+    folder_name: str = f"{cfg.name}_{tag}" if tag else cfg.name
+    dest: Path = root / folder_name
 
     # prune older versions
     older: List[Path] = [
         p
-        for p in target_root.iterdir()
-        if p.is_dir() and p.name.startswith(cfg.name) and p != dest_sub
+        for p in root.iterdir()
+        if p.is_dir() and p.name.startswith(cfg.name) and p != dest
     ]
-    if older and prompt_yes_no(f"Delete older versions of {cfg.name}?", default=True):
+
+    if dest.exists():
+        console.log(f"[bold green]✔ {cfg.name} already up-to-date (tag {tag})")
+    else:
+        # download + extract
+        assert dl_url, "URL should be resolved by now"
+        with download(dl_url, dest) as downloaded_archive:
+            extract_archive(downloaded_archive, dest)
+
+        console.log(
+            f"[bold green]✔ {cfg.name} (tag {tag})[/] [bold green]✔ installed → {dest}"
+        )
+
+    if older and prompt_yes_no(
+        f"Delete older versions of {cfg.name} ({older} => {dest})?", default=True
+    ):
         for p in older:
             logger.debug("Deleting old version: %s", p)
             shutil.rmtree(p, ignore_errors=True)
-
-    if dest_sub.exists():
-        logger.info("%s already up-to-date (tag %s)", cfg.name, tag)
-        return
-
-    # download + extract
-    assert url, "URL should be resolved by now"
-    with download_temp(url) as tmp:
-        extract_archive(tmp, dest_sub)
-
-    console.log(f"[bold green]✔ {cfg.name}[/] installed → {dest_sub}")
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +356,7 @@ def load_config(cfg_path: Path) -> List[AppConfig]:
     raw = json.loads(cfg_path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):
         raise ConfigError("apps.json must be a list of objects")
+
     configs: List[AppConfig] = [AppConfig(**item) for item in raw]
     logger.info("Loaded %d app definitions", len(configs))
     return configs
@@ -297,17 +373,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Path to apps.json config",
     )
+    p.add_argument(
+        "-d",
+        "--download-dir",
+        default=str(Path.cwd()),
+        help="Where to place temporary downloads",
+    )
     return p
 
 
-def main(argv: List[str] | None = None) -> None:  # noqa: D401
+def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
     """Program entry-point."""
     args = build_arg_parser().parse_args(argv)
+    download_dir = Path(args.download_dir)
     try:
         configs = load_config(args.config)
         for cfg in configs:
             try:
-                process_app(cfg)
+                process_app(cfg, download_dir)
             except GrabPortablesError as app_exc:
                 logger.error("%s failed: %s", cfg.name, app_exc, exc_info=True)
     except GrabPortablesError as exc:

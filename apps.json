@@ -2,7 +2,7 @@
   {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
-    "asset_regex": "rufus-[0-9.]+p?\\.exe$",
+    "asset_regex": "rufus-[0-9.]+p\\.exe$",
     "install_dir": "~/PortableApps/Rufus"
   },
   {
@@ -19,8 +19,8 @@
   },
   {
     "name": "OpenRGB",
-    "github_repo": "CalcProgrammer1/OpenRGB",
-    "asset_regex": "OpenRGB_.*Windows_64.*\\.zip$",
+    "page_url": "https://openrgb.org/releases.html",
+    "asset_regex": "releases/[^/]*?/OpenRGB_(.{3,16})_Windows_64_1fbacde\\.zip",
     "install_dir": "~/PortableApps/OpenRGB"
   },
   {
@@ -31,30 +31,32 @@
   },
   {
     "name": "SysinternalsSuite",
-    "url": "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+    "page_url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite",
+    "asset_regex": "SysinternalsSuite\\.zip$",
     "install_dir": "~/PortableApps/Sysinternals"
   },
   {
     "name": "CPU-Z",
-    "url": "https://download.cpuid.com/cpu-z/cpu-z_2.16-en.zip",
+    "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
+    "asset_regex": "cpu-z_[0-9.]+-en\\.zip$",
     "install_dir": "~/PortableApps/CPU-Z"
   },
   {
     "name": "CrystalDiskInfo",
     "github_repo": "hiyohiyo/CrystalDiskInfo",
-    "asset_regex": "CrystalDiskInfo.*x64.zip$",
+    "asset_regex": "CrystalDiskInfo.*x64\\.zip$",
     "install_dir": "~/PortableApps/CrystalDiskInfo"
   },
   {
     "name": "CrystalDiskMark",
     "github_repo": "hiyohiyo/CrystalDiskMark",
-    "asset_regex": "CrystalDiskMark.*x64.*zip$",
+    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$",
     "install_dir": "~/PortableApps/CrystalDiskMark"
   },
   {
     "name": "OpenHardwareMonitor",
     "github_repo": "HardwareMonitor/OpenHardwareMonitor",
-    "asset_regex": "openhardwaremonitor-v.*-binaries.zip$",
+    "asset_regex": "openhardwaremonitor-v.*-binaries\\.zip$",
     "install_dir": "~/PortableApps/OpenHardwareMonitor"
   },
   {
@@ -65,12 +67,20 @@
   },
   {
     "name": "GSmartControl",
-    "url": "https://github.com/ashkamp/gsmartcontrol/releases/download/v1.1.3/gsmartcontrol-1.1.3-win64.zip",
+    "github_repo": "ashkamp/gsmartcontrol",
+    "asset_regex": "gsmartcontrol-.*-win64\\.zip$",
     "install_dir": "~/PortableApps/GSmartControl"
   },
   {
     "name": "ImageMagick",
-    "url": "https://download.imagemagick.org/ImageMagick/download/binaries/ImageMagick-7.1.1-21-portable-Q16-x64.zip",
+    "page_url": "https://imagemagick.org/script/download.php",
+    "asset_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.zip$",
     "install_dir": "~/PortableApps/ImageMagick"
+  },
+  {
+    "name": "Prime95",
+    "page_url": "https://prime95.net/download.html",
+    "asset_regex": "p95v[0-9.]+b[0-9]+\\.win64\\.zip$",
+    "install_dir": "~/PortableApps/Prime95"
   }
 ]
