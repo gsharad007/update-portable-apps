@@ -36,7 +36,17 @@ import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (Final, Iterator, List, NoReturn, Optional, Sequence, Tuple, TypeAlias, Never)
+from typing import (
+    Final,
+    Iterator,
+    List,
+    NoReturn,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeAlias,
+    Never,
+)
 
 import requests
 import py7zr
@@ -62,9 +72,7 @@ DEFAULT_CFG: Final[str] = "apps.json"
 DEFAULT_RETRIES: Final[int] = 3
 CHUNK: Final[int] = 8192
 TIMEOUT: Final[float] = 60.0  # seconds for HTTP
-UA: Final[str] = (
-    "Mozilla/5.0 (compatible; PortablesFetcher/1.0; +https://invalid/)"
-)
+UA: Final[str] = "Mozilla/5.0 (compatible; PortablesFetcher/1.0; +https://invalid/)"
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -225,9 +233,7 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
             version = m.group(1) if m.lastindex and m.lastindex >= 1 else ""
             return version, url
 
-    raise AssetNotFoundError(
-        f"No link in {page_url} matches /{pattern}/i"
-    )
+    raise AssetNotFoundError(f"No link in {page_url} matches /{pattern}/i")
 
 
 # ----------------------------- Download / extract ------------------------- #
