@@ -5,6 +5,11 @@
     "asset_regex": "rufus-[0-9.]+p\\.exe$"
   },
   {
+    "name": "libreWolf",
+    "gitlab_repo": "librewolf-community/browser/bsys6",
+    "asset_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
+  },
+  {
     "name": "VSCode",
     "github_repo": "portapps/vscode-portable",
     "asset_regex": "vscode-portable-win64\\.exe$"
