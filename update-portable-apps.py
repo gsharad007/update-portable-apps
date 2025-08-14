@@ -157,7 +157,20 @@ def assert_never(value: Never) -> NoReturn:  # noqa: D401
 
 
 def http_get(url: UrlStr, context: str, headers: Optional[dict[str, str]] = None) -> requests.Response:
-    """Wrapper around requests.get that raises NetworkError on failure."""
+    """
+    Wrapper around requests.get that raises NetworkError on failure.
+
+    Parameters:
+        url (UrlStr): The URL to fetch.
+        context (str): Context description for error messages.
+        headers (Optional[dict[str, str]]): HTTP headers to include in the request.
+
+    Returns:
+        requests.Response: The HTTP response object.
+
+    Raises:
+        NetworkError: If the request fails.
+    """
     try:
     """Wrapper around requests.get that raises NetworkError on failure, including non-2xx status codes."""
     try:
