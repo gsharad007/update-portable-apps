@@ -443,15 +443,59 @@ def process_app(cfg: AppConfig, download_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
+    """Convert JSON text into ``AppConfig`` objects.
+
+    Parameters
+    ----------
+    text:
+        Raw JSON configuration.
+    cfg_path:
+        Path to the configuration file, used only for error messages.
+
+    Returns
+    -------
+    list[AppConfig]
+        Parsed app configuration entries.
+
+    Raises
+    ------
+    ConfigError
+        If the JSON is invalid or entries cannot be mapped to ``AppConfig``.
+    """
+
+    try:
+        raw: object = json.loads(text)
+    except json.JSONDecodeError as exc:  # noqa: PERF203 - re-raised with context
+        raise ConfigError(
+            f"{cfg_path}: JSON decode error at line {exc.lineno} column {exc.colno}"
+        ) from exc
+
+    if not isinstance(raw, list):
+        raise ConfigError(f"{cfg_path}: root must be a list of objects")
+
+    configs: List[AppConfig] = []
+    for idx, item in enumerate(raw, start=1):
+        if not isinstance(item, dict):
+            raise ConfigError(f"{cfg_path} entry #{idx}: expected object")
+        try:
+            configs.append(AppConfig(**item))
+        except TypeError as exc:  # noqa: PERF203 - provide context
+            raise ConfigError(f"{cfg_path} entry #{idx}: {exc}") from exc
+
+    return configs
+
+
 def load_config(cfg_path: Path) -> List[AppConfig]:
+    """Read ``apps.json`` from ``cfg_path`` and parse ``AppConfig`` entries."""
+
     logger.debug("Loading config %s", cfg_path)
     if not cfg_path.exists():
         raise ConfigError(f"Missing config file: {cfg_path}")
-    raw = json.loads(cfg_path.read_text(encoding="utf-8"))
-    if not isinstance(raw, list):
-        raise ConfigError("apps.json must be a list of objects")
 
-    configs: List[AppConfig] = [AppConfig(**item) for item in raw]
+    text: str = cfg_path.read_text(encoding="utf-8")
+    configs: List[AppConfig] = _parse_config(text, cfg_path)
+
     logger.info("Loaded %d app definitions", len(configs))
     return configs
 
