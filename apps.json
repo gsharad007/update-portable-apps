@@ -40,21 +40,6 @@
     "asset_regex": "SysinternalsSuite\\.zip$"
   },
   {
-    "name": "CPU-Z",
-    "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_(.*?)+-en\\.zip"
-  },
-  {
-    "name": "CrystalDiskInfo",
-    "github_repo": "hiyohiyo/CrystalDiskInfo",
-    "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
-  },
-  {
-    "name": "CrystalDiskMark",
-    "github_repo": "hiyohiyo/CrystalDiskMark",
-    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
-  },
-  {
     "name": "OpenHardwareMonitor",
     "page_url": "https://openhardwaremonitor.org/downloads/",
     "asset_regex": "openhardwaremonitor-(.*?)\\.zip$"
@@ -78,5 +63,55 @@
     "name": "Prime95",
     "page_url": "https://prime95.net/download/",
     "asset_regex": "p95v(.*?)\\.win64\\.zip$"
+  },
+  {
+    "name": "Memtest86+",
+    "page_url": "https://memtest.org/",
+    "asset_regex": "mt86plus_(.*?)_USB_Installer.exe$"
+  },
+  {
+    "name": "SDIO",
+    "page_url": "https://www.glenn.delahoy.com/snappy-driver-installer-origin/",
+    "asset_regex": "SDIO_(.*?)\\.zip$"
+  },
+  {
+    "name": "MultiPar",
+    "github_repo": "Yutaka-Sawada/MultiPar",
+    "asset_regex": "MultiPar(.*?)\\.zip$"
+  },
+  {
+    "name": "HeavyLoad",
+    "page_url": "https://sourceforge.net/projects/heavyload/files/HeavyLoad-x64.zip/download",
+    "asset_regex": "HeavyLoad-x64\\.zip$"
+  },
+  {
+    "name": "HWInfo",
+    "page_url": "https://www.hwinfo.com/download/",
+    "asset_regex": "hwi_(.*?)\\.zip$"
+  },
+  {
+    "name": "Linpack Xtreme",
+    "page_url": "https://linpack-xtreme.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
+  },
+  {
+    "name": "EmsisoftEmergencyKit",
+    "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
+    "asset_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
+  },
+  {
+    "name": "CPU-Z",
+    "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
+    "asset_regex": "cpu-z_(.*?)+-en\\.zip"
+  },
+  {
+    "name": "CrystalDiskInfo",
+    "github_repo": "hiyohiyo/CrystalDiskInfo",
+    "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
+  },
+  {
+    "name": "CrystalDiskMark",
+    "github_repo": "hiyohiyo/CrystalDiskMark",
+    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
   }
 ]
