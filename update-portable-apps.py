@@ -173,7 +173,6 @@ def http_get(url: UrlStr, context: str, headers: Optional[dict[str, str]] = None
     """
     try:
     """Wrapper around requests.get that raises NetworkError on failure, including non-2xx status codes."""
-    try:
         response = requests.get(url, timeout=TIMEOUT, headers=headers)
         try:
             response.raise_for_status()
