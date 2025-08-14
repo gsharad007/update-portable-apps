@@ -60,6 +60,7 @@ __all__: Sequence[str] = (
     "ConfigError",
     "AssetNotFoundError",
     "DownloadError",
+    "NetworkError",
     "main",
 )
 
@@ -109,6 +110,10 @@ class DownloadError(GrabPortablesError):
     """Raised after exhausting retries while downloading a file."""
 
 
+class NetworkError(GrabPortablesError):
+    """Raised when a network request fails."""
+
+
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
@@ -151,13 +156,21 @@ def assert_never(value: Never) -> NoReturn:  # noqa: D401
     raise AssertionError("Unreachable code executed")
 
 
+def http_get(url: UrlStr, context: str, headers: Optional[dict[str, str]] = None) -> requests.Response:
+    """Wrapper around requests.get that raises NetworkError on failure."""
+    try:
+        return requests.get(url, timeout=TIMEOUT, headers=headers)
+    except requests.RequestException as exc:
+        raise NetworkError(f"{context}: {exc}") from exc
+
+
 # ----------------------------- GitHub ------------------------------------- #
 
 
 def newest_github_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     api: UrlStr = f"https://api.github.com/repos/{repo}/releases/latest"
     logger.debug("GitHub API %s", api)
-    resp: requests.Response = requests.get(api, timeout=TIMEOUT)
+    resp: requests.Response = http_get(api, f"GitHub {repo}")
     if resp.status_code != 200:
         raise AssetNotFoundError(f"GitHub {repo}: HTTP {resp.status_code}")
 
@@ -182,7 +195,7 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     proj: str = uparse.quote_plus(repo)
     api: UrlStr = f"https://gitlab.com/api/v4/projects/{proj}/releases"
     logger.debug("GitLab API %s", api)
-    resp: requests.Response = requests.get(api, timeout=TIMEOUT)
+    resp: requests.Response = http_get(api, f"GitLab {repo}")
     if resp.status_code != 200:
         raise AssetNotFoundError(f"GitLab {repo}: HTTP {resp.status_code}")
 
@@ -209,7 +222,9 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
     relative links using <base href> when present.
     """
     logger.debug(f"direct download page {page_url}")
-    resp = requests.get(page_url, timeout=TIMEOUT, headers={"User-Agent": UA})
+    resp: requests.Response = http_get(
+        page_url, f"Page fetch {page_url}", headers={"User-Agent": UA}
+    )
     if resp.status_code != 200:
         raise AssetNotFoundError(f"Page fetch {page_url}: HTTP {resp.status_code}")
     soup = BeautifulSoup(resp.text, "lxml")
