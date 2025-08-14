@@ -20,7 +20,7 @@
   {
     "name": "OpenRGB",
     "page_url": "https://openrgb.org/releases.html",
-    "asset_regex": "releases/[^/]*?/OpenRGB_(.{3,16})_Windows_64_1fbacde\\.zip",
+    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip",
     "install_dir": "~/PortableApps/OpenRGB"
   },
   {
@@ -38,7 +38,7 @@
   {
     "name": "CPU-Z",
     "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_[0-9.]+-en\\.zip$",
+    "asset_regex": "cpu-z_(.*?)+-en\\.zip",
     "install_dir": "~/PortableApps/CPU-Z"
   },
   {
@@ -55,32 +55,32 @@
   },
   {
     "name": "OpenHardwareMonitor",
-    "github_repo": "HardwareMonitor/OpenHardwareMonitor",
-    "asset_regex": "openhardwaremonitor-v.*-binaries\\.zip$",
+    "page_url": "https://openhardwaremonitor.org/downloads/",
+    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$",
     "install_dir": "~/PortableApps/OpenHardwareMonitor"
   },
   {
     "name": "Notepad++",
     "github_repo": "notepad-plus-plus/notepad-plus-plus",
-    "asset_regex": "npp\\..*\\.bin\\.minimalist\\.x64\\.zip$",
+    "asset_regex": "npp\\..*\\.portable\\.minimalist\\.x64\\.7z$",
     "install_dir": "~/PortableApps/Notepad++"
   },
   {
     "name": "GSmartControl",
-    "github_repo": "ashkamp/gsmartcontrol",
+    "github_repo": "ashaduri/gsmartcontrol",
     "asset_regex": "gsmartcontrol-.*-win64\\.zip$",
     "install_dir": "~/PortableApps/GSmartControl"
   },
   {
     "name": "ImageMagick",
     "page_url": "https://imagemagick.org/script/download.php",
-    "asset_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.zip$",
+    "asset_regex": "ImageMagick-(.*?)-portable-Q16-x64\\.zip$",
     "install_dir": "~/PortableApps/ImageMagick"
   },
   {
     "name": "Prime95",
-    "page_url": "https://prime95.net/download.html",
-    "asset_regex": "p95v[0-9.]+b[0-9]+\\.win64\\.zip$",
+    "page_url": "https://prime95.net/download/",
+    "asset_regex": "p95v(.*?)\\.win64\\.zip$",
     "install_dir": "~/PortableApps/Prime95"
   }
 ]

@@ -17,7 +17,7 @@ Key design points
 3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``
 Install once:
 ```
-pip install -U requests tqdm rich py7zr
+pip install -U requests tqdm rich py7zr beautifulsoup4 lxml
 ```
 """
 
@@ -36,10 +36,11 @@ import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Iterator, List, Optional, Sequence, Tuple, TypeAlias
+from typing import (Final, Iterator, List, NoReturn, Optional, Sequence, Tuple, TypeAlias, Never)
 
 import requests
 import py7zr
+from bs4 import BeautifulSoup
 from rich.console import Console
 from tqdm import tqdm
 
@@ -61,6 +62,9 @@ DEFAULT_CFG: Final[str] = "apps.json"
 DEFAULT_RETRIES: Final[int] = 3
 CHUNK: Final[int] = 8192
 TIMEOUT: Final[float] = 60.0  # seconds for HTTP
+UA: Final[str] = (
+    "Mozilla/5.0 (compatible; PortablesFetcher/1.0; +https://invalid/)"
+)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -191,20 +195,40 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     raise AssetNotFoundError(f"No GitLab asset in {repo} matches /{pattern}/i")
 
 
-def newest_direct_asset(page_url: UrlStr, regex: str) -> Tuple[str, UrlStr]:
-    """Scrape *page_url* HTML and extract first href matching *regex*."""
-    resp = requests.get(page_url, timeout=TIMEOUT)
+def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
+    """Scrape *page_url*, parse <a href> links, return (version?, url) of first match.
+
+    Uses BeautifulSoup (lxml/html.parser) for robust HTML parsing and resolves
+    relative links using <base href> when present.
+    """
+    logger.debug(f"direct download page {page_url}")
+    resp = requests.get(page_url, timeout=TIMEOUT, headers={"User-Agent": UA})
     if resp.status_code != 200:
         raise AssetNotFoundError(f"Page fetch {page_url}: HTTP {resp.status_code}")
-    html = resp.text
-    match = re.search(regex, html)
-    if not match:
-        raise AssetNotFoundError(f"No link in {page_url} matches /{regex}/i")
-    href = match.group(0)
-    full_url = uparse.urljoin(page_url, href)
-    # try to extract version from capture group 1
-    version = match.group(1) if len(match.groups()) >= 1 else ""
-    return version, full_url
+    soup = BeautifulSoup(resp.text, "lxml")
+
+    # Determine effective base for relative links
+    base_tag = soup.find("base", href=True)
+    effective_base: UrlStr = (
+        uparse.urljoin(page_url, base_tag["href"]) if base_tag else page_url
+    )
+
+    rx = re.compile(pattern, re.I)
+    for a in soup.find_all("a", href=True):
+        raw_href = str(a["href"])  # ensure str for typing
+        url = uparse.urljoin(effective_base, raw_href)
+        scheme = uparse.urlparse(url).scheme.lower()
+        # logger.debug(f"direct download page links: '{a}' '{url}' '{a.get_text(strip=True)}'")
+        if scheme not in ("http", "https"):
+            continue
+        m = rx.search(url) or rx.search(a.get_text(strip=True))
+        if m:
+            version = m.group(1) if m.lastindex and m.lastindex >= 1 else ""
+            return version, url
+
+    raise AssetNotFoundError(
+        f"No link in {page_url} matches /{pattern}/i"
+    )
 
 
 # ----------------------------- Download / extract ------------------------- #
