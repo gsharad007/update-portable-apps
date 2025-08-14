@@ -10,6 +10,11 @@
     "asset_regex": "vscode-portable-win64\\.exe$"
   },
   {
+    "name": "VSCodium",
+    "github_repo": "VSCodium/vscodium",
+    "asset_regex": "VSCodium-win32-x64-.*?\\.zip$"
+  },
+  {
     "name": "FanControl",
     "github_repo": "Rem0o/FanControl.Releases",
     "asset_regex": "FanControl_.*_net_.*\\.zip$"
