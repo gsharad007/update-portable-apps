@@ -100,17 +100,42 @@
     "asset_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
   },
   {
-    "name": "CPU-Z",
+    "name": "CPU-Z-OG",
     "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_(.*?)+-en\\.zip"
+    "asset_regex": "cpu-z_(.*?)-en\\.zip"
+  },
+  {
+    "name": "CPU-Z",
+    "page_url": "https://cpu-z.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/cpu-z/"
+  },
+  {
+    "name": "AMD-Ryzen-Master",
+    "page_url": "https://amd-ryzen-master.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/amd-ryzen-master/"
+  },
+  {
+    "name": "Microsoft-Safety-Scanner",
+    "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
+    "asset_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
   },
   {
     "name": "CrystalDiskInfo",
+    "page_url": "https://crystaldiskinfo.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskinfo/"
+  },
+  {
+    "name": "CrystalDiskMark",
+    "github_repo": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
+  },
+  {
+    "name": "CrystalDiskInfo-OG",
     "github_repo": "hiyohiyo/CrystalDiskInfo",
     "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
   },
   {
-    "name": "CrystalDiskMark",
+    "name": "CrystalDiskMark-OG",
     "github_repo": "hiyohiyo/CrystalDiskMark",
     "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
   }
