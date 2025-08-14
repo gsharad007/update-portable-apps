@@ -308,14 +308,23 @@ def extract_archive(archive: Path, dest: Path) -> None:
 
     suffix: str = archive.suffix.lower()
     if suffix == ".zip":
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(dest)
+        try:
+            with zipfile.ZipFile(archive) as zf:
+                zf.extractall(dest)
+        except zipfile.BadZipFile as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     elif suffix in {".tar", ".gz", ".bz2", ".xz"} or archive.name.endswith(".tar.xz"):
-        with tarfile.open(archive) as tf:
-            tf.extractall(dest)
+        try:
+            with tarfile.open(archive) as tf:
+                tf.extractall(dest)
+        except tarfile.TarError as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     elif suffix == ".7z":
-        with py7zr.SevenZipFile(archive) as z:
-            z.extractall(dest)
+        try:
+            with py7zr.SevenZipFile(archive) as z:
+                z.extractall(dest)
+        except py7zr.exceptions.Bad7zFile as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     else:
         # not an archive - copy or rename
         target: Path = dest / archive.name
