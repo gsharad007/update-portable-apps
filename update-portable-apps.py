@@ -50,6 +50,7 @@ from typing import (
 
 import requests
 import py7zr
+from py7zr import py7zr, Bad7zFile
 from bs4 import BeautifulSoup
 from rich.console import Console
 from tqdm import tqdm
