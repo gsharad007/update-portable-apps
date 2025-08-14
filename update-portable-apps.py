@@ -50,6 +50,7 @@ from typing import (
 
 import requests
 import py7zr
+from py7zr import Bad7zFile
 from bs4 import BeautifulSoup
 from rich.console import Console
 from tqdm import tqdm
@@ -308,14 +309,23 @@ def extract_archive(archive: Path, dest: Path) -> None:
 
     suffix: str = archive.suffix.lower()
     if suffix == ".zip":
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(dest)
+        try:
+            with zipfile.ZipFile(archive) as zf:
+                zf.extractall(dest)
+        except zipfile.BadZipFile as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     elif suffix in {".tar", ".gz", ".bz2", ".xz"} or archive.name.endswith(".tar.xz"):
-        with tarfile.open(archive) as tf:
-            tf.extractall(dest)
+        try:
+            with tarfile.open(archive) as tf:
+                tf.extractall(dest)
+        except tarfile.TarError as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     elif suffix == ".7z":
-        with py7zr.SevenZipFile(archive) as z:
-            z.extractall(dest)
+        try:
+            with py7zr.SevenZipFile(archive) as z:
+                z.extractall(dest)
+        except Bad7zFile as exc:
+            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     else:
         # not an archive - copy or rename
         target: Path = dest / archive.name
@@ -439,9 +449,9 @@ def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
             try:
                 process_app(cfg, download_dir)
             except GrabPortablesError as app_exc:
-                logger.error("%s failed: %s", cfg.name, app_exc, exc_info=True)
+                logger.error("%s failed: %s", cfg.name, app_exc)
     except GrabPortablesError as exc:
-        logger.critical("Fatal error: %s", exc, exc_info=True)
+        logger.critical("Fatal error: %s", exc)
         sys.exit(1)
 
 
