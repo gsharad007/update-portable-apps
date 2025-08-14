@@ -448,9 +448,9 @@ def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
             try:
                 process_app(cfg, download_dir)
             except GrabPortablesError as app_exc:
-                logger.error("%s failed: %s", cfg.name, app_exc, exc_info=True)
+                logger.error("%s failed: %s", cfg.name, app_exc)  # , exc_info=True)
     except GrabPortablesError as exc:
-        logger.critical("Fatal error: %s", exc, exc_info=True)
+        logger.critical("Fatal error: %s", exc)  # , exc_info=True)
         sys.exit(1)
 
 
