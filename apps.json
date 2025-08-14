@@ -2,85 +2,71 @@
   {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
-    "asset_regex": "rufus-[0-9.]+p\\.exe$",
-    "install_dir": "~/PortableApps/Rufus"
+    "asset_regex": "rufus-[0-9.]+p\\.exe$"
   },
   {
     "name": "VSCode",
     "github_repo": "portapps/vscode-portable",
-    "asset_regex": "vscode-portable-win64\\.exe$",
-    "install_dir": "~/PortableApps/VSCode"
+    "asset_regex": "vscode-portable-win64\\.exe$"
   },
   {
     "name": "FanControl",
     "github_repo": "Rem0o/FanControl.Releases",
-    "asset_regex": "FanControl_.*_net_.*\\.zip$",
-    "install_dir": "~/PortableApps/FanControl"
+    "asset_regex": "FanControl_.*_net_.*\\.zip$"
   },
   {
     "name": "OpenRGB",
     "page_url": "https://openrgb.org/releases.html",
-    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip",
-    "install_dir": "~/PortableApps/OpenRGB"
+    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip"
   },
   {
     "name": "Ventoy",
     "github_repo": "ventoy/Ventoy",
-    "asset_regex": "ventoy-.*-windows\\.zip$",
-    "install_dir": "~/PortableApps/Ventoy"
+    "asset_regex": "ventoy-.*-windows\\.zip$"
   },
   {
     "name": "SysinternalsSuite",
     "page_url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite",
-    "asset_regex": "SysinternalsSuite\\.zip$",
-    "install_dir": "~/PortableApps/Sysinternals"
+    "asset_regex": "SysinternalsSuite\\.zip$"
   },
   {
     "name": "CPU-Z",
     "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_(.*?)+-en\\.zip",
-    "install_dir": "~/PortableApps/CPU-Z"
+    "asset_regex": "cpu-z_(.*?)+-en\\.zip"
   },
   {
     "name": "CrystalDiskInfo",
     "github_repo": "hiyohiyo/CrystalDiskInfo",
-    "asset_regex": "CrystalDiskInfo.*x64\\.zip$",
-    "install_dir": "~/PortableApps/CrystalDiskInfo"
+    "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
   },
   {
     "name": "CrystalDiskMark",
     "github_repo": "hiyohiyo/CrystalDiskMark",
-    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$",
-    "install_dir": "~/PortableApps/CrystalDiskMark"
+    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
   },
   {
     "name": "OpenHardwareMonitor",
     "page_url": "https://openhardwaremonitor.org/downloads/",
-    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$",
-    "install_dir": "~/PortableApps/OpenHardwareMonitor"
+    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$"
   },
   {
     "name": "Notepad++",
     "github_repo": "notepad-plus-plus/notepad-plus-plus",
-    "asset_regex": "npp\\..*\\.portable\\.minimalist\\.x64\\.7z$",
-    "install_dir": "~/PortableApps/Notepad++"
+    "asset_regex": "npp\\..*\\.portable\\.minimalist\\.x64\\.7z$"
   },
   {
     "name": "GSmartControl",
     "github_repo": "ashaduri/gsmartcontrol",
-    "asset_regex": "gsmartcontrol-.*-win64\\.zip$",
-    "install_dir": "~/PortableApps/GSmartControl"
+    "asset_regex": "gsmartcontrol-.*-win64\\.zip$"
   },
   {
     "name": "ImageMagick",
     "page_url": "https://imagemagick.org/script/download.php",
-    "asset_regex": "ImageMagick-(.*?)-portable-Q16-x64\\.zip$",
-    "install_dir": "~/PortableApps/ImageMagick"
+    "asset_regex": "ImageMagick-(.*?)-portable-Q16-x64\\.zip$"
   },
   {
     "name": "Prime95",
     "page_url": "https://prime95.net/download/",
-    "asset_regex": "p95v(.*?)\\.win64\\.zip$",
-    "install_dir": "~/PortableApps/Prime95"
+    "asset_regex": "p95v(.*?)\\.win64\\.zip$"
   }
 ]

@@ -109,7 +109,6 @@ class DownloadError(GrabPortablesError):
 @dataclass(slots=True, frozen=True)
 class AppConfig:
     name: str
-    install_dir: str
     github_repo: Optional[str] = None  # owner/repo
     gitlab_repo: Optional[str] = None  # group/project (URL‑slug form)
     url: Optional[UrlStr] = None
