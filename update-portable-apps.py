@@ -281,7 +281,7 @@ def download(
                 dest.unlink(missing_ok=True)
                 raise DownloadError("Downloaded zero‑byte file")
             if total_bytes and file_size != total_bytes:
-                dest.unlink(missing_ok=True)
+                # dest.unlink(missing_ok=True)
                 raise DownloadError(
                     f"Downloaded file size {file_size} does not match expected {total_bytes}"
                 )
@@ -298,10 +298,7 @@ def download(
     else:
         raise DownloadError(f"Retries exhausted for {url}") from last_exc
 
-    try:
-        yield dest
-    finally:
-        dest.unlink(missing_ok=True)
+    yield dest
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -324,9 +321,7 @@ def extract_archive(archive: Path, dest: Path) -> None:
         target: Path = dest / archive.name
         try:
             if archive.resolve() == target.resolve():
-                new_name: Path = dest / f"{archive.stem}_1{archive.suffix}"
-                logger.debug("Source and destination are the same; renaming to %s", new_name)
-                archive.rename(new_name)
+                logger.debug("Source and destination are the same")
             else:
                 shutil.copy2(archive, target)
         except OSError as exc:
