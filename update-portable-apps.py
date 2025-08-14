@@ -250,22 +250,21 @@ def download(
     parsed: uparse.ParseResult = uparse.urlparse(url)
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    parsed = uparse.urlparse(url)
-    filename = Path(parsed.path).name or f"download{int(time.time())}"
-    dest = download_dir / filename
-    last_exc: Optional[Exception] = None
+    filename: str = Path(parsed.path).name or f"download{int(time.time())}"
+    dest: Path = download_dir / filename
+    last_exc: Optional[requests.RequestException] = None
 
     for attempt in range(1, retries + 1):
         try:
             logger.debug("[%d/%d] GET %s", attempt, retries, url)
             resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
             resp.raise_for_status()
-            total = int(resp.headers.get("content-length", 0))
+            total_bytes: int = int(resp.headers.get("content-length", 0))
 
             with (
                 dest.open("wb") as fh,
                 tqdm(
-                    total=total,
+                    total=total_bytes,
                     unit="B",
                     unit_scale=True,
                     desc=filename,
@@ -277,17 +276,32 @@ def download(
                         fh.write(chunk)
                         bar.update(len(chunk))
 
-            if dest.stat().st_size == 0:
+            file_size: int = dest.stat().st_size
+            if file_size == 0:
+                dest.unlink(missing_ok=True)
                 raise DownloadError("Downloaded zero‑byte file")
+            if total_bytes and file_size != total_bytes:
+                dest.unlink(missing_ok=True)
+                raise DownloadError(
+                    f"Downloaded file size {file_size} does not match expected {total_bytes}"
+                )
 
-            return_value: Path = dest
-            yield return_value
-            return  # success
-        except Exception as exc:
+            break  # success
+        except requests.RequestException as exc:
             last_exc = exc
             logger.warning("Download attempt %d failed: %s", attempt, exc)
+            dest.unlink(missing_ok=True)
             time.sleep(2**attempt)
-    raise DownloadError(f"Retries exhausted for {url}") from last_exc
+        except Exception:
+            dest.unlink(missing_ok=True)
+            raise
+    else:
+        raise DownloadError(f"Retries exhausted for {url}") from last_exc
+
+    try:
+        yield dest
+    finally:
+        dest.unlink(missing_ok=True)
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
