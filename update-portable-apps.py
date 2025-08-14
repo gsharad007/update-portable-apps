@@ -156,7 +156,9 @@ def assert_never(value: Never) -> NoReturn:  # noqa: D401
     raise AssertionError("Unreachable code executed")
 
 
-def http_get(url: UrlStr, context: str, headers: Optional[dict[str, str]] = None) -> requests.Response:
+def http_get(
+    url: UrlStr, context: str, headers: Optional[dict[str, str]] = None
+) -> requests.Response:
     """
     Wrapper around requests.get that raises NetworkError on failure.
 
@@ -172,13 +174,19 @@ def http_get(url: UrlStr, context: str, headers: Optional[dict[str, str]] = None
         NetworkError: If the request fails.
     """
     try:
-    """Wrapper around requests.get that raises NetworkError on failure, including non-2xx status codes."""
-    try:
-        response = requests.get(url, timeout=TIMEOUT, headers=headers)
+        response: requests.Response = requests.get(
+            url, timeout=TIMEOUT, headers=headers
+        )
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
-            raise NetworkError(f"{context}: HTTP error {response.status_code} for {url}: {exc}") from exc
+            raise NetworkError(
+                f"{context}: HTTP error {response.status_code} for {url}: {exc}"
+            ) from exc
+        if response.status_code != 200:
+            raise AssetNotFoundError(
+                f"{context}: HTTP {response.status_code} for {url}"
+            )
         return response
     except requests.RequestException as exc:
         raise NetworkError(f"{context}: {exc}") from exc
@@ -191,8 +199,6 @@ def newest_github_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     api: UrlStr = f"https://api.github.com/repos/{repo}/releases/latest"
     logger.debug("GitHub API %s", api)
     resp: requests.Response = http_get(api, f"GitHub {repo}")
-    if resp.status_code != 200:
-        raise AssetNotFoundError(f"GitHub {repo}: HTTP {resp.status_code}")
 
     data: dict[str, object] = resp.json()
     tag: str = str(data.get("tag_name", ""))
@@ -216,8 +222,6 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     api: UrlStr = f"https://gitlab.com/api/v4/projects/{proj}/releases"
     logger.debug("GitLab API %s", api)
     resp: requests.Response = http_get(api, f"GitLab {repo}")
-    if resp.status_code != 200:
-        raise AssetNotFoundError(f"GitLab {repo}: HTTP {resp.status_code}")
 
     releases: List[dict[str, object]] = resp.json()  # type: ignore[assignment]
     if not releases:
@@ -245,8 +249,7 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
     resp: requests.Response = http_get(
         page_url, f"Page fetch {page_url}", headers={"User-Agent": UA}
     )
-    if resp.status_code != 200:
-        raise AssetNotFoundError(f"Page fetch {page_url}: HTTP {resp.status_code}")
+
     soup = BeautifulSoup(resp.text, "lxml")
 
     # Determine effective base for relative links
