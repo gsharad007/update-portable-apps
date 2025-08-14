@@ -320,8 +320,17 @@ def extract_archive(archive: Path, dest: Path) -> None:
         with py7zr.SevenZipFile(archive) as z:
             z.extractall(dest)
     else:
-        # not an archive - copy
-        shutil.copy2(archive, dest / archive.name)
+        # not an archive - copy or rename
+        target: Path = dest / archive.name
+        try:
+            if archive.resolve() == target.resolve():
+                new_name: Path = dest / f"{archive.stem}_1{archive.suffix}"
+                logger.debug("Source and destination are the same; renaming to %s", new_name)
+                archive.rename(new_name)
+            else:
+                shutil.copy2(archive, target)
+        except OSError as exc:
+            raise GrabPortablesError("destination in use or locked") from exc
 
 
 def prompt_yes_no(question: str, default: bool = True) -> bool:
