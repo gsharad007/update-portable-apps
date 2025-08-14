@@ -324,7 +324,7 @@ def extract_archive(archive: Path, dest: Path) -> None:
         try:
             with py7zr.SevenZipFile(archive) as z:
                 z.extractall(dest)
-        except Bad7zFile as exc:
+        except py7zr.Bad7zFile as exc:
             raise GrabPortablesError(f"{archive.name}: {exc}") from exc
     else:
         # not an archive - copy or rename
@@ -449,9 +449,9 @@ def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
             try:
                 process_app(cfg, download_dir)
             except GrabPortablesError as app_exc:
-                logger.error("%s failed: %s", cfg.name, app_exc)
+                logger.error("%s failed: %s", cfg.name, app_exc)  # , exc_info=True)
     except GrabPortablesError as exc:
-        logger.critical("Fatal error: %s", exc)
+        logger.critical("Fatal error: %s", exc)  # , exc_info=True)
         sys.exit(1)
 
 
