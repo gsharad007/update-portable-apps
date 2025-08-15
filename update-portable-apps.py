@@ -8,15 +8,14 @@ Key design points
 * **Dataclass-driven config** (``apps.json`` → ``List[AppConfig]``).
 * **Dedicated exception hierarchy** so callers can distinguish errors.
 * **Structured logging** (console + log-file) at DEBUG level by default.
-* **Retry / back-off** for flaky HTTP downloads.
 * **Assertions** for critical invariants (fail fast in dev / CI).
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
 
-3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
+3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
 Install once:
 ```
-pip install -U requests tqdm rich py7zr beautifulsoup4 lxml json5
+pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5
 ```
 """
 
@@ -34,12 +33,11 @@ import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from email.message import Message
 from pathlib import Path
 from typing import (
     Final,
     Iterable,
-    Iterator,
+    Generator,
     List,
     NoReturn,
     Optional,
@@ -51,6 +49,7 @@ from typing import (
 )
 
 import requests
+import httpx
 import py7zr
 from bs4 import BeautifulSoup, Tag
 from rich.console import Console
@@ -72,8 +71,6 @@ __all__: Sequence[str] = (
 
 LOG_FILE: Final[str] = "grab-portables.log"
 DEFAULT_CFG: Final[str] = "apps.json"
-DEFAULT_RETRIES: Final[int] = 3
-CHUNK: Final[int] = 8192
 TIMEOUT: Final[float] = 60.0  # seconds for HTTP
 UA: Final[str] = "Mozilla/5.0 (compatible; PortablesFetcher/1.0; +https://invalid/)"
 
@@ -194,20 +191,6 @@ def http_get(
         raise NetworkError(f"{context}: {exc}") from exc
 
 
-def content_disposition_filename(header: Optional[str]) -> Optional[str]:
-    """Return filename parsed from a Content-Disposition header, if any."""
-    if header is None:
-        return None
-    msg: Message = Message()
-    msg["Content-Disposition"] = header
-    param = msg.get_param("filename", header="content-disposition")
-    if param:
-        if isinstance(param, tuple):
-            _, _, value = param
-            return uparse.unquote(value)
-        return param
-    return None
-
 
 # ----------------------------- GitHub ------------------------------------- #
 
@@ -304,71 +287,80 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 # ----------------------------- Download / extract ------------------------- #
 
 
-@contextmanager
-def download(
-    url: UrlStr,
-    download_dir: Path,
-    retries: int = DEFAULT_RETRIES,
-) -> Iterator[Path]:
-    """Download *url* into a temp-file under *download_dir*; yields Path."""
+def _filename_from_response(response: httpx.Response) -> str:
+    """Derive a filename from *response* headers or URL."""
+    cd: Optional[str] = response.headers.get("Content-Disposition")
+    if cd is not None:
+        match: Optional[re.Match[str]] = re.search(
+            r"filename=\"?([^\";]+)\"?", cd
+        )
+        if match:
+            return match.group(1)
 
-    parsed: uparse.ParseResult = uparse.urlparse(url)
+    name: str = Path(uparse.urlparse(str(response.url)).path).name
+    return name or f"download{int(time.time())}"
+
+
+@contextmanager
+def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
+    """Download *url* into *download_dir*; yields Path."""
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    base_filename: str = Path(parsed.path).name or f"download{int(time.time())}"
-    dest: Path = download_dir / base_filename
-    last_exc: Optional[requests.RequestException] = None
+    initial_name: str = Path(uparse.urlparse(url).path).name or f"download{int(time.time())}"
+    dest: Path = download_dir / initial_name
+    resume_pos: int = dest.stat().st_size if dest.exists() else 0
+    headers: dict[str, str] = {"User-Agent": UA}
+    if resume_pos:
+        headers["Range"] = f"bytes={resume_pos}-"
 
-    for attempt in range(1, retries + 1):
+    with httpx.Client(timeout=TIMEOUT, follow_redirects=True) as client:
         try:
-            logger.debug("[%d/%d] GET %s", attempt, retries, url)
-            resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
-            resp.raise_for_status()
-
-            cd_filename: Optional[str] = content_disposition_filename(
-                resp.headers.get("content-disposition")
-            )
-            dest = download_dir / (cd_filename or base_filename)
-
-            total_bytes: int = int(resp.headers.get("content-length", 0))
-
-            with (
-                dest.open("wb") as fh,
-                tqdm(
-                    total=total_bytes,
+            with client.stream("GET", url, headers=headers) as response:
+                if response.status_code not in {200, 206}:
+                    dest.unlink(missing_ok=True)
+                    raise DownloadError(f"HTTP {response.status_code} for {url}")
+                final_name: str = _filename_from_response(response)
+                if final_name != dest.name:
+                    dest = dest.with_name(final_name)
+                    resume_pos = dest.stat().st_size if dest.exists() else 0
+                ctype: str = response.headers.get("Content-Type", "")
+                if "text/html" in ctype:
+                    dest.unlink(missing_ok=True)
+                    raise DownloadError("expected binary content, got HTML")
+                total: int = int(response.headers.get("Content-Length", "0"))
+                if resume_pos and response.status_code == 206:
+                    content_range: Optional[str] = response.headers.get("Content-Range")
+                    if content_range and "/" in content_range:
+                        total = int(content_range.split("/")[-1])
+                    else:
+                        total += resume_pos
+                elif resume_pos:
+                    total += resume_pos
+                mode: str = "ab" if resume_pos else "wb"
+                with open(dest, mode) as file, tqdm(
                     unit="B",
                     unit_scale=True,
                     desc=dest.name,
                     leave=False,
-                ) as bar,
-            ):
-                for chunk in resp.iter_content(chunk_size=CHUNK):
-                    if chunk:  # pragma: no branch — network may send keep-alives
-                        fh.write(chunk)
+                    total=total or None,
+                    initial=resume_pos,
+                ) as bar:
+                    for chunk in response.iter_bytes(65_536):
+                        file.write(chunk)
                         bar.update(len(chunk))
-
-            file_size: int = dest.stat().st_size
-            if file_size == 0:
-                dest.unlink(missing_ok=True)
-                raise DownloadError("Downloaded zero-byte file")
-            if total_bytes and file_size != total_bytes:
-                raise DownloadError(
-                    f"Downloaded file size {file_size} does not match expected {total_bytes}"
-                )
-
-            break  # success
-        except requests.RequestException as exc:
-            last_exc = exc
-            logger.warning("Download attempt %d failed: %s", attempt, exc)
+        except httpx.HTTPError as exc:  # pragma: no cover - network errors
             dest.unlink(missing_ok=True)
-            time.sleep(2**attempt)
-        except Exception:
-            dest.unlink(missing_ok=True)
-            raise
-    else:
-        raise DownloadError(f"Retries exhausted for {url}") from last_exc
+            raise DownloadError(str(exc)) from exc
 
-    yield dest
+    if dest.stat().st_size == 0:
+        dest.unlink(missing_ok=True)
+        raise DownloadError("Downloaded zero-byte file")
+
+    try:
+        yield dest
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -455,7 +447,7 @@ def process_app(cfg: AppConfig, download_dir: Path) -> None:
     else:
         # download + extract
         assert dl_url, "URL should be resolved by now"
-        with download(dl_url, dest) as downloaded_archive:
+        with download(dl_url, dest) as downloaded_archive:  # type: Path
             extract_archive(downloaded_archive, dest)
 
         console.log(
