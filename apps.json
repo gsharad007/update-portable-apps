@@ -2,6 +2,16 @@
 // Comment out app blocks with // or /* */ to disable them temporarily.
 [
   {
+    "name": "7-Zip",
+    "page_url": "https://7-zip-portable.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "peazip_portable-.*?.WIN64\\.zip$"
+  },
+  {
+    "name": "PeaZip",
+    "github_repo": "peazip/PeaZip",
+    "asset_regex": "https://www.lo4d.com/get-file/peazip-portable/"
+  },
+  {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
     "asset_regex": "rufus-[0-9.]+p\\.exe$"
@@ -92,6 +102,11 @@
     "asset_regex": "hwi_(.*?)\\.zip$"
   },
   {
+    "name": "HWMonitor",
+    "page_url": "https://hwmonitor.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/hwmonitor/"
+  },
+  {
     "name": "Linpack Xtreme",
     "page_url": "https://linpack-xtreme.en.lo4d.com/download/mirror-hs1",
     "asset_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
@@ -112,9 +127,24 @@
     "asset_regex": "https://www.lo4d.com/get-file/cpu-z/"
   },
   {
+    "name": "GPU-Z",
+    "page_url": "https://gpu-z.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/cpu-z/"
+  },
+  {
     "name": "AMD-Ryzen-Master",
     "page_url": "https://amd-ryzen-master.en.lo4d.com/download/mirror-hs1",
     "asset_regex": "https://www.lo4d.com/get-file/amd-ryzen-master/"
+  },
+  {
+    "name": "AMD-Adreline",
+    "page_url": "https://www.amd.com/en/support/download/drivers.html",
+    "asset_regex": "amd-software-adrenalin-edition-(.*?)-minimalsetup-.*?_web\\.exe"
+  },
+  {
+    "name": "AMD-Chipset",
+    "page_url": "https://drivers.amd.com/drivers/amd_chipset_software_7.06.02.123.exe",
+    "asset_regex": "amd_chipset_software_(.*?)\\.exe"
   },
   {
     "name": "Microsoft-Safety-Scanner",
@@ -138,7 +168,7 @@
   },
   {
     "name": "CrystalDiskMark",
-    "github_repo": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
+    "github_repo": "https://crystaldiskmark-portable.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark-portable/"
   }
 ]
