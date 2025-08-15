@@ -13,10 +13,10 @@ Key design points
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
 
-3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
+3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``, ``pySmartDL``, ``json5``
 Install once:
 ```
-pip install -U requests tqdm rich py7zr beautifulsoup4 lxml json5
+pip install -U requests tqdm rich py7zr pySmartDL beautifulsoup4 lxml json5
 ```
 """
 
@@ -34,12 +34,11 @@ import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from email.message import Message
 from pathlib import Path
 from typing import (
     Final,
     Iterable,
-    Iterator,
+    Generator,
     List,
     NoReturn,
     Optional,
@@ -72,8 +71,6 @@ __all__: Sequence[str] = (
 
 LOG_FILE: Final[str] = "grab-portables.log"
 DEFAULT_CFG: Final[str] = "apps.json"
-DEFAULT_RETRIES: Final[int] = 3
-CHUNK: Final[int] = 8192
 TIMEOUT: Final[float] = 60.0  # seconds for HTTP
 UA: Final[str] = "Mozilla/5.0 (compatible; PortablesFetcher/1.0; +https://invalid/)"
 
@@ -194,20 +191,6 @@ def http_get(
         raise NetworkError(f"{context}: {exc}") from exc
 
 
-def content_disposition_filename(header: Optional[str]) -> Optional[str]:
-    """Return filename parsed from a Content-Disposition header, if any."""
-    if header is None:
-        return None
-    msg: Message = Message()
-    msg["Content-Disposition"] = header
-    param = msg.get_param("filename", header="content-disposition")
-    if param:
-        if isinstance(param, tuple):
-            _, _, value = param
-            return uparse.unquote(value)
-        return param
-    return None
-
 
 # ----------------------------- GitHub ------------------------------------- #
 
@@ -305,70 +288,43 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 
 
 @contextmanager
-def download(
-    url: UrlStr,
-    download_dir: Path,
-    retries: int = DEFAULT_RETRIES,
-) -> Iterator[Path]:
-    """Download *url* into a temp-file under *download_dir*; yields Path."""
+def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
+    """Download *url* into *download_dir*; yields Path."""
+
+    from pySmartDL import SmartDL
 
     parsed: uparse.ParseResult = uparse.urlparse(url)
     download_dir.mkdir(parents=True, exist_ok=True)
 
     base_filename: str = Path(parsed.path).name or f"download{int(time.time())}"
     dest: Path = download_dir / base_filename
-    last_exc: Optional[requests.RequestException] = None
 
-    for attempt in range(1, retries + 1):
-        try:
-            logger.debug("[%d/%d] GET %s", attempt, retries, url)
-            resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
-            resp.raise_for_status()
+    dl = SmartDL(url, str(dest), progress_bar=False, timeout=TIMEOUT)
 
-            cd_filename: Optional[str] = content_disposition_filename(
-                resp.headers.get("content-disposition")
-            )
-            dest = download_dir / (cd_filename or base_filename)
+    with tqdm(unit="B", unit_scale=True, desc=dest.name, leave=False) as bar:
 
-            total_bytes: int = int(resp.headers.get("content-length", 0))
+        def _progress_hook(smart: SmartDL) -> None:
+            total = getattr(smart, "filesize", 0) or 0
+            if total and bar.total is None:
+                bar.total = total
+            bar.update(smart.get_dl_size() - bar.n)
 
-            with (
-                dest.open("wb") as fh,
-                tqdm(
-                    total=total_bytes,
-                    unit="B",
-                    unit_scale=True,
-                    desc=dest.name,
-                    leave=False,
-                ) as bar,
-            ):
-                for chunk in resp.iter_content(chunk_size=CHUNK):
-                    if chunk:  # pragma: no branch — network may send keep-alives
-                        fh.write(chunk)
-                        bar.update(len(chunk))
+        dl.add_progress_hook(_progress_hook)
+        dl.start(blocking=True)
 
-            file_size: int = dest.stat().st_size
-            if file_size == 0:
-                dest.unlink(missing_ok=True)
-                raise DownloadError("Downloaded zero-byte file")
-            if total_bytes and file_size != total_bytes:
-                raise DownloadError(
-                    f"Downloaded file size {file_size} does not match expected {total_bytes}"
-                )
+    if not dl.isSuccessful():
+        errors = "; ".join(str(e) for e in dl.get_errors())
+        raise DownloadError(errors or "Download failed")
 
-            break  # success
-        except requests.RequestException as exc:
-            last_exc = exc
-            logger.warning("Download attempt %d failed: %s", attempt, exc)
-            dest.unlink(missing_ok=True)
-            time.sleep(2**attempt)
-        except Exception:
-            dest.unlink(missing_ok=True)
-            raise
-    else:
-        raise DownloadError(f"Retries exhausted for {url}") from last_exc
+    final_dest = Path(dl.get_dest())
+    if final_dest.stat().st_size == 0:
+        final_dest.unlink(missing_ok=True)
+        raise DownloadError("Downloaded zero-byte file")
 
-    yield dest
+    try:
+        yield final_dest
+    finally:
+        final_dest.unlink(missing_ok=True)
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -455,7 +411,7 @@ def process_app(cfg: AppConfig, download_dir: Path) -> None:
     else:
         # download + extract
         assert dl_url, "URL should be resolved by now"
-        with download(dl_url, dest) as downloaded_archive:
+        with download(dl_url, dest) as downloaded_archive:  # type: Path
             extract_archive(downloaded_archive, dest)
 
         console.log(
