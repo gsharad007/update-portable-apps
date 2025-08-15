@@ -191,7 +191,6 @@ def http_get(
         raise NetworkError(f"{context}: {exc}") from exc
 
 
-
 # ----------------------------- GitHub ------------------------------------- #
 
 
@@ -291,9 +290,7 @@ def _filename_from_response(response: httpx.Response) -> str:
     """Derive a filename from *response* headers or URL."""
     cd: Optional[str] = response.headers.get("Content-Disposition")
     if cd is not None:
-        match: Optional[re.Match[str]] = re.search(
-            r"filename=\"?([^\";]+)\"?", cd
-        )
+        match: Optional[re.Match[str]] = re.search(r"filename=\"?([^\";]+)\"?", cd)
         if match:
             return match.group(1)
 
@@ -306,7 +303,9 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     """Download *url* into *download_dir*; yields Path."""
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    initial_name: str = Path(uparse.urlparse(url).path).name or f"download{int(time.time())}"
+    initial_name: str = (
+        Path(uparse.urlparse(url).path).name or f"download{int(time.time())}"
+    )
     dest: Path = download_dir / initial_name
     resume_pos: int = dest.stat().st_size if dest.exists() else 0
     headers: dict[str, str] = {"User-Agent": UA}
@@ -337,14 +336,17 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
                 elif resume_pos:
                     total += resume_pos
                 mode: str = "ab" if resume_pos else "wb"
-                with open(dest, mode) as file, tqdm(
-                    unit="B",
-                    unit_scale=True,
-                    desc=dest.name,
-                    leave=False,
-                    total=total or None,
-                    initial=resume_pos,
-                ) as bar:
+                with (
+                    open(dest, mode) as file,
+                    tqdm(
+                        unit="B",
+                        unit_scale=True,
+                        desc=dest.name,
+                        leave=False,
+                        total=total or None,
+                        initial=resume_pos,
+                    ) as bar,
+                ):
                     for chunk in response.iter_bytes(65_536):
                         file.write(chunk)
                         bar.update(len(chunk))
