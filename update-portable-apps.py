@@ -35,7 +35,6 @@ import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from email.message import Message
-from email.parser import HeaderParser
 from pathlib import Path
 from typing import (
     Final,
@@ -199,9 +198,15 @@ def content_disposition_filename(header: Optional[str]) -> Optional[str]:
     """Return filename parsed from a Content-Disposition header, if any."""
     if header is None:
         return None
-    parser: HeaderParser = HeaderParser()
-    msg: Message = parser.parsestr(f"Content-Disposition: {header}\n")
-    return msg.get_filename()
+    msg: Message = Message()
+    msg["Content-Disposition"] = header
+    param = msg.get_param("filename", header="content-disposition")
+    if param:
+        if isinstance(param, tuple):
+            _, _, value = param
+            return uparse.unquote(value)
+        return param
+    return None
 
 
 # ----------------------------- GitHub ------------------------------------- #
