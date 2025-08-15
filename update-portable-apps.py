@@ -1,4 +1,3 @@
-# mypy: strict
 """grab_portables_strict.py
 An aggressively-typed, modular and chatty rewrite of the original
 "grab-portables" script.  Runs on Python ≥3.10.
@@ -35,9 +34,11 @@ import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from email.message import Message
 from pathlib import Path
 from typing import (
     Final,
+    Iterable,
     Iterator,
     List,
     NoReturn,
@@ -46,11 +47,12 @@ from typing import (
     Tuple,
     TypeAlias,
     Never,
+    cast,
 )
 
 import requests
 import py7zr
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from rich.console import Console
 from tqdm import tqdm
 
@@ -192,6 +194,15 @@ def http_get(
         raise NetworkError(f"{context}: {exc}") from exc
 
 
+def content_disposition_filename(header: Optional[str]) -> Optional[str]:
+    """Return filename parsed from a Content-Disposition header, if any."""
+    if header is None:
+        return None
+    msg: Message = Message()
+    msg.add_header("content-disposition", header)
+    return msg.get_filename()
+
+
 # ----------------------------- GitHub ------------------------------------- #
 
 
@@ -202,7 +213,10 @@ def newest_github_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
 
     data: dict[str, object] = resp.json()
     tag: str = str(data.get("tag_name", ""))
-    assets: List[dict[str, object]] = list(data.get("assets", []))  # type: ignore[arg-type]
+    assets_iter: Iterable[dict[str, object]] = cast(
+        Iterable[dict[str, object]], data.get("assets", [])
+    )
+    assets: List[dict[str, object]] = list(assets_iter)
 
     for asset in assets:
         name = str(asset.get("name", ""))
@@ -223,13 +237,17 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     logger.debug("GitLab API %s", api)
     resp: requests.Response = http_get(api, f"GitLab {repo}")
 
-    releases: List[dict[str, object]] = resp.json()  # type: ignore[assignment]
+    releases: List[dict[str, object]] = cast(List[dict[str, object]], resp.json())
     if not releases:
         raise AssetNotFoundError(f"GitLab {repo}: no releases")
     latest: dict[str, object] = releases[0]
     tag: str = str(latest.get("tag_name", ""))
 
-    assets: List[dict[str, object]] = list(latest.get("assets", {}).get("links", []))  # type: ignore[arg-type]
+    assets_dict: dict[str, object] = cast(dict[str, object], latest.get("assets", {}))
+    links_iter: Iterable[dict[str, object]] = cast(
+        Iterable[dict[str, object]], assets_dict.get("links", [])
+    )
+    assets: List[dict[str, object]] = list(links_iter)
     for asset in assets:
         name: str = str(asset.get("name", ""))
         if re.search(pattern, name, flags=re.I):
@@ -254,9 +272,12 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 
     # Determine effective base for relative links
     base_tag = soup.find("base", href=True)
-    effective_base: UrlStr = (
-        uparse.urljoin(page_url, base_tag["href"]) if base_tag else page_url
-    )
+    if isinstance(base_tag, Tag):
+        href_val = base_tag.get("href")
+        base_href: str = str(href_val) if href_val else ""
+        effective_base: UrlStr = uparse.urljoin(page_url, base_href)
+    else:
+        effective_base = page_url
 
     rx = re.compile(pattern, re.I)
     for a in soup.find_all("a", href=True):
@@ -288,15 +309,22 @@ def download(
     parsed: uparse.ParseResult = uparse.urlparse(url)
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    filename: str = Path(parsed.path).name or f"download{int(time.time())}"
-    dest: Path = download_dir / filename
+    base_filename: str = Path(parsed.path).name or f"download{int(time.time())}"
+    dest: Path = download_dir / base_filename
     last_exc: Optional[requests.RequestException] = None
 
     for attempt in range(1, retries + 1):
+        dest = download_dir / base_filename
         try:
             logger.debug("[%d/%d] GET %s", attempt, retries, url)
             resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
             resp.raise_for_status()
+
+            cd_filename: Optional[str] = content_disposition_filename(
+                resp.headers.get("content-disposition")
+            )
+            dest = download_dir / (cd_filename or base_filename)
+
             total_bytes: int = int(resp.headers.get("content-length", 0))
 
             with (
@@ -305,7 +333,7 @@ def download(
                     total=total_bytes,
                     unit="B",
                     unit_scale=True,
-                    desc=filename,
+                    desc=dest.name,
                     leave=False,
                 ) as bar,
             ):
@@ -319,7 +347,6 @@ def download(
                 dest.unlink(missing_ok=True)
                 raise DownloadError("Downloaded zero‑byte file")
             if total_bytes and file_size != total_bytes:
-                # dest.unlink(missing_ok=True)
                 raise DownloadError(
                     f"Downloaded file size {file_size} does not match expected {total_bytes}"
                 )
