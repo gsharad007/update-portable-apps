@@ -320,7 +320,6 @@ def download(
     last_exc: Optional[requests.RequestException] = None
 
     for attempt in range(1, retries + 1):
-        dest = download_dir / base_filename
         try:
             logger.debug("[%d/%d] GET %s", attempt, retries, url)
             resp: requests.Response = requests.get(url, stream=True, timeout=TIMEOUT)
