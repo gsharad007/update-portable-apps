@@ -14,17 +14,17 @@ Key design points
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
 
-3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``
+3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
 Install once:
 ```
-pip install -U requests tqdm rich py7zr beautifulsoup4 lxml
+pip install -U requests tqdm rich py7zr beautifulsoup4 lxml json5
 ```
 """
 
 from __future__ import annotations
 
 import argparse
-import json
+import json5
 import logging
 import re
 import shutil
@@ -465,10 +465,12 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
     """
 
     try:
-        raw: object = json.loads(text)
-    except json.JSONDecodeError as exc:  # noqa: PERF203 - re-raised with context
+        raw: object = json5.loads(text)
+    except json5.JSON5DecodeError as exc:  # noqa: PERF203 - re-raised with context
+        line = getattr(exc, "lineno", "?")
+        col = getattr(exc, "colno", "?")
         raise ConfigError(
-            f"{cfg_path}: JSON decode error at line {exc.lineno} column {exc.colno}"
+            f"{cfg_path}: JSON decode error at line {line} column {col}"
         ) from exc
 
     if not isinstance(raw, list):

@@ -1,3 +1,5 @@
+// This configuration file supports comments.
+// Comment out app blocks with // or /* */ to disable them temporarily.
 [
   {
     "name": "Rufus",
@@ -99,11 +101,11 @@
     "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
     "asset_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
   },
-  {
-    "name": "CPU-Z-OG",
-    "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_(.*?)-en\\.zip"
-  },
+  // {
+  //   "name": "CPU-Z-OG",
+  //   "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
+  //   "asset_regex": "cpu-z_(.*?)-en\\.zip"
+  // },
   {
     "name": "CPU-Z",
     "page_url": "https://cpu-z.en.lo4d.com/download/mirror-hs1",
@@ -119,6 +121,16 @@
     "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
     "asset_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
   },
+  // {
+  //   "name": "CrystalDiskInfo-OG",
+  //   "github_repo": "hiyohiyo/CrystalDiskInfo",
+  //   "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
+  // },
+  // {
+  //   "name": "CrystalDiskMark-OG",
+  //   "github_repo": "hiyohiyo/CrystalDiskMark",
+  //   "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
+  // }
   {
     "name": "CrystalDiskInfo",
     "page_url": "https://crystaldiskinfo.en.lo4d.com/download/mirror-hs1",
@@ -128,15 +140,5 @@
     "name": "CrystalDiskMark",
     "github_repo": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
     "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
-  },
-  {
-    "name": "CrystalDiskInfo-OG",
-    "github_repo": "hiyohiyo/CrystalDiskInfo",
-    "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
-  },
-  {
-    "name": "CrystalDiskMark-OG",
-    "github_repo": "hiyohiyo/CrystalDiskMark",
-    "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
   }
 ]

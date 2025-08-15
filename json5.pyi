@@ -1,0 +1,3 @@
+from typing import Any
+
+def loads(s: str, *args: Any, **kwargs: Any) -> object: ...
