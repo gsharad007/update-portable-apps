@@ -24,6 +24,7 @@ pip install -U requests tqdm rich py7zr beautifulsoup4 lxml json5
 from __future__ import annotations
 
 import argparse
+import json5
 import logging
 import re
 import shutil
@@ -462,13 +463,6 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
     ConfigError
         If the JSON is invalid or entries cannot be mapped to ``AppConfig``.
     """
-
-    try:
-        import json5
-    except ModuleNotFoundError as exc:
-        raise ConfigError(
-            "json5 package is required for parsing configs with comments"
-        ) from exc
 
     try:
         raw: object = json5.loads(text)
