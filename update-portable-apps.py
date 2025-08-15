@@ -466,7 +466,7 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
 
     try:
         raw: object = json5.loads(text)
-    except Exception as exc:  # noqa: BLE001, PERF203 - re-raised with context
+    except json5.JSON5DecodeError as exc:  # noqa: PERF203 - re-raised with context
         line = getattr(exc, "lineno", "?")
         col = getattr(exc, "colno", "?")
         raise ConfigError(
