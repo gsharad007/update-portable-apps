@@ -300,17 +300,26 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     dest: Path = download_dir / base_filename
 
     dl = SmartDL(url, str(dest), progress_bar=False, timeout=TIMEOUT)
+    try:
+        dl.start(blocking=False)
+    except Exception as exc:  # pragma: no cover - network errors
+        raise DownloadError(str(exc)) from exc
 
     with tqdm(unit="B", unit_scale=True, desc=dest.name, leave=False) as bar:
-
-        def _progress_hook(smart: SmartDL) -> None:
-            total = getattr(smart, "filesize", 0) or 0
+        while not dl.isFinished():
+            total = dl.filesize or 0
             if total and bar.total is None:
                 bar.total = total
-            bar.update(smart.get_dl_size() - bar.n)
+            bar.update(dl.get_dl_size() - bar.n)
+            time.sleep(0.1)
 
-        dl.add_progress_hook(_progress_hook)
-        dl.start(blocking=True)
+        # final refresh in case the loop exits before bar updates
+        total = dl.filesize or 0
+        if total and bar.total is None:
+            bar.total = total
+        bar.update(dl.get_dl_size() - bar.n)
+
+    dl.wait(raise_exceptions=True)
 
     if not dl.isSuccessful():
         errors = "; ".join(str(e) for e in dl.get_errors())
