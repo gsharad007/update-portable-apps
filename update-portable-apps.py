@@ -47,7 +47,6 @@ from typing import (
     Never,
 )
 
-import json5
 import requests
 import py7zr
 from bs4 import BeautifulSoup
@@ -463,6 +462,13 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
     ConfigError
         If the JSON is invalid or entries cannot be mapped to ``AppConfig``.
     """
+
+    try:
+        import json5
+    except ModuleNotFoundError as exc:
+        raise ConfigError(
+            "json5 package is required for parsing configs with comments"
+        ) from exc
 
     try:
         raw: object = json5.loads(text)
