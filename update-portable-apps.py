@@ -97,7 +97,7 @@ UrlStr: TypeAlias = str
 
 
 class GrabPortablesError(Exception):
-    """Root of all domain‑specific exceptions."""
+    """Root of all domain-specific exceptions."""
 
 
 class ConfigError(GrabPortablesError):
@@ -125,7 +125,7 @@ class NetworkError(GrabPortablesError):
 class AppConfig:
     name: str
     github_repo: Optional[str] = None  # owner/repo
-    gitlab_repo: Optional[str] = None  # group/project (URL‑slug form)
+    gitlab_repo: Optional[str] = None  # group/project (URL-slug form)
     url: Optional[UrlStr] = None
     page_url: Optional[UrlStr] = None
     asset_regex: Optional[str] = None
@@ -237,7 +237,7 @@ def newest_github_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
 
 
 def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
-    # GitLab API expects URL‑encoded project path
+    # GitLab API expects URL-encoded project path
     proj: str = uparse.quote_plus(repo)
     api: UrlStr = f"https://gitlab.com/api/v4/projects/{proj}/releases"
     logger.debug("GitLab API %s", api)
@@ -344,14 +344,14 @@ def download(
                 ) as bar,
             ):
                 for chunk in resp.iter_content(chunk_size=CHUNK):
-                    if chunk:  # pragma: no branch — network may send keep‑alives
+                    if chunk:  # pragma: no branch — network may send keep-alives
                         fh.write(chunk)
                         bar.update(len(chunk))
 
             file_size: int = dest.stat().st_size
             if file_size == 0:
                 dest.unlink(missing_ok=True)
-                raise DownloadError("Downloaded zero‑byte file")
+                raise DownloadError("Downloaded zero-byte file")
             if total_bytes and file_size != total_bytes:
                 raise DownloadError(
                     f"Downloaded file size {file_size} does not match expected {total_bytes}"
