@@ -306,31 +306,35 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     """Download *url* into *download_dir*; yields Path."""
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    with httpx.Client(
-        timeout=TIMEOUT, headers={"User-Agent": UA}, follow_redirects=True
-    ) as client:
-        try:
-            head: httpx.Response = client.head(url, follow_redirects=True)
-        except httpx.HTTPError as exc:  # pragma: no cover - network errors
-            raise DownloadError(str(exc)) from exc
+    initial_name: str = Path(uparse.urlparse(url).path).name or f"download{int(time.time())}"
+    dest: Path = download_dir / initial_name
+    resume_pos: int = dest.stat().st_size if dest.exists() else 0
+    headers: dict[str, str] = {"User-Agent": UA}
+    if resume_pos:
+        headers["Range"] = f"bytes={resume_pos}-"
 
-        if head.status_code >= 400:
-            raise DownloadError(f"HTTP {head.status_code} for {url}")
-
-        filename: str = _filename_from_response(head)
-        dest: Path = download_dir / filename
-        resume_pos: int = dest.stat().st_size if dest.exists() else 0
-        headers: dict[str, str] = {"User-Agent": UA}
-        if resume_pos:
-            headers["Range"] = f"bytes={resume_pos}-"
-
+    with httpx.Client(timeout=TIMEOUT, follow_redirects=True) as client:
         try:
             with client.stream("GET", url, headers=headers) as response:
                 if response.status_code not in {200, 206}:
                     dest.unlink(missing_ok=True)
                     raise DownloadError(f"HTTP {response.status_code} for {url}")
-                total = int(response.headers.get("Content-Length", "0"))
-                if resume_pos:
+                final_name: str = _filename_from_response(response)
+                if final_name != dest.name:
+                    dest = dest.with_name(final_name)
+                    resume_pos = dest.stat().st_size if dest.exists() else 0
+                ctype: str = response.headers.get("Content-Type", "")
+                if "text/html" in ctype:
+                    dest.unlink(missing_ok=True)
+                    raise DownloadError("expected binary content, got HTML")
+                total: int = int(response.headers.get("Content-Length", "0"))
+                if resume_pos and response.status_code == 206:
+                    content_range: Optional[str] = response.headers.get("Content-Range")
+                    if content_range and "/" in content_range:
+                        total = int(content_range.split("/")[-1])
+                    else:
+                        total += resume_pos
+                elif resume_pos:
                     total += resume_pos
                 mode: str = "ab" if resume_pos else "wb"
                 with open(dest, mode) as file, tqdm(
