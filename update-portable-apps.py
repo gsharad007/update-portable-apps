@@ -287,24 +287,47 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 # ----------------------------- Download / extract ------------------------- #
 
 
+def _filename_from_response(response: httpx.Response) -> str:
+    """Derive a filename from *response* headers or URL."""
+    cd: Optional[str] = response.headers.get("Content-Disposition")
+    if cd is not None:
+        match: Optional[re.Match[str]] = re.search(
+            r"filename=\"?([^\";]+)\"?", cd
+        )
+        if match:
+            return match.group(1)
+
+    name: str = Path(uparse.urlparse(str(response.url)).path).name
+    return name or f"download{int(time.time())}"
+
+
 @contextmanager
 def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     """Download *url* into *download_dir*; yields Path."""
-    parsed: uparse.ParseResult = uparse.urlparse(url)
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    base_filename: str = Path(parsed.path).name or f"download{int(time.time())}"
-    dest: Path = download_dir / base_filename
+    with httpx.Client(
+        timeout=TIMEOUT, headers={"User-Agent": UA}, follow_redirects=True
+    ) as client:
+        try:
+            head: httpx.Response = client.head(url, follow_redirects=True)
+        except httpx.HTTPError as exc:  # pragma: no cover - network errors
+            raise DownloadError(str(exc)) from exc
 
-    resume_pos: int = dest.stat().st_size if dest.exists() else 0
-    headers: dict[str, str] = {"User-Agent": UA}
-    if resume_pos:
-        headers["Range"] = f"bytes={resume_pos}-"
+        if head.status_code >= 400:
+            raise DownloadError(f"HTTP {head.status_code} for {url}")
 
-    try:
-        with httpx.Client(timeout=TIMEOUT, headers=headers, follow_redirects=True) as client:
+        filename: str = _filename_from_response(head)
+        dest: Path = download_dir / filename
+        resume_pos: int = dest.stat().st_size if dest.exists() else 0
+        headers: dict[str, str] = {"User-Agent": UA}
+        if resume_pos:
+            headers["Range"] = f"bytes={resume_pos}-"
+
+        try:
             with client.stream("GET", url, headers=headers) as response:
                 if response.status_code not in {200, 206}:
+                    dest.unlink(missing_ok=True)
                     raise DownloadError(f"HTTP {response.status_code} for {url}")
                 total = int(response.headers.get("Content-Length", "0"))
                 if resume_pos:
@@ -321,8 +344,9 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
                     for chunk in response.iter_bytes(65_536):
                         file.write(chunk)
                         bar.update(len(chunk))
-    except httpx.HTTPError as exc:  # pragma: no cover - network errors
-        raise DownloadError(str(exc)) from exc
+        except httpx.HTTPError as exc:  # pragma: no cover - network errors
+            dest.unlink(missing_ok=True)
+            raise DownloadError(str(exc)) from exc
 
     if dest.stat().st_size == 0:
         dest.unlink(missing_ok=True)
@@ -330,8 +354,9 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
 
     try:
         yield dest
-    finally:
+    except Exception:
         dest.unlink(missing_ok=True)
+        raise
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
