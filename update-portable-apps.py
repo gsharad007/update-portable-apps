@@ -8,15 +8,14 @@ Key design points
 * **Dataclass-driven config** (``apps.json`` → ``List[AppConfig]``).
 * **Dedicated exception hierarchy** so callers can distinguish errors.
 * **Structured logging** (console + log-file) at DEBUG level by default.
-* **Retry / back-off** for flaky HTTP downloads.
 * **Assertions** for critical invariants (fail fast in dev / CI).
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
 
-3rd-party deps: ``requests``, ``tqdm``, ``rich``, ``py7zr``, ``pySmartDL``, ``json5``
+3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
 Install once:
 ```
-pip install -U requests tqdm rich py7zr pySmartDL beautifulsoup4 lxml json5
+pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5
 ```
 """
 
@@ -50,6 +49,7 @@ from typing import (
 )
 
 import requests
+import httpx
 import py7zr
 from bs4 import BeautifulSoup, Tag
 from rich.console import Console
@@ -290,50 +290,48 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 @contextmanager
 def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     """Download *url* into *download_dir*; yields Path."""
-
-    from pySmartDL import SmartDL
-
     parsed: uparse.ParseResult = uparse.urlparse(url)
     download_dir.mkdir(parents=True, exist_ok=True)
 
     base_filename: str = Path(parsed.path).name or f"download{int(time.time())}"
     dest: Path = download_dir / base_filename
 
-    dl = SmartDL(url, str(dest), progress_bar=False, timeout=TIMEOUT)
+    resume_pos: int = dest.stat().st_size if dest.exists() else 0
+    headers: dict[str, str] = {"User-Agent": UA}
+    if resume_pos:
+        headers["Range"] = f"bytes={resume_pos}-"
+
     try:
-        dl.start(blocking=False)
-    except Exception as exc:  # pragma: no cover - network errors
+        with httpx.Client(timeout=TIMEOUT, headers=headers, follow_redirects=True) as client:
+            with client.stream("GET", url, headers=headers) as response:
+                if response.status_code not in {200, 206}:
+                    raise DownloadError(f"HTTP {response.status_code} for {url}")
+                total = int(response.headers.get("Content-Length", "0"))
+                if resume_pos:
+                    total += resume_pos
+                mode: str = "ab" if resume_pos else "wb"
+                with open(dest, mode) as file, tqdm(
+                    unit="B",
+                    unit_scale=True,
+                    desc=dest.name,
+                    leave=False,
+                    total=total or None,
+                    initial=resume_pos,
+                ) as bar:
+                    for chunk in response.iter_bytes(65_536):
+                        file.write(chunk)
+                        bar.update(len(chunk))
+    except httpx.HTTPError as exc:  # pragma: no cover - network errors
         raise DownloadError(str(exc)) from exc
 
-    with tqdm(unit="B", unit_scale=True, desc=dest.name, leave=False) as bar:
-        while not dl.isFinished():
-            total = dl.filesize or 0
-            if total and bar.total is None:
-                bar.total = total
-            bar.update(dl.get_dl_size() - bar.n)
-            time.sleep(0.1)
-
-        # final refresh in case the loop exits before bar updates
-        total = dl.filesize or 0
-        if total and bar.total is None:
-            bar.total = total
-        bar.update(dl.get_dl_size() - bar.n)
-
-    dl.wait(raise_exceptions=True)
-
-    if not dl.isSuccessful():
-        errors = "; ".join(str(e) for e in dl.get_errors())
-        raise DownloadError(errors or "Download failed")
-
-    final_dest = Path(dl.get_dest())
-    if final_dest.stat().st_size == 0:
-        final_dest.unlink(missing_ok=True)
+    if dest.stat().st_size == 0:
+        dest.unlink(missing_ok=True)
         raise DownloadError("Downloaded zero-byte file")
 
     try:
-        yield final_dest
+        yield dest
     finally:
-        final_dest.unlink(missing_ok=True)
+        dest.unlink(missing_ok=True)
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
