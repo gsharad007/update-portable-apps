@@ -1,3 +1,5 @@
+// This configuration file supports comments.
+// Comment out app blocks with // or /* */ to disable them temporarily.
 [
   {
     "name": "Rufus",
