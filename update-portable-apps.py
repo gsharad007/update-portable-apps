@@ -320,6 +320,40 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 # ----------------------------- Download / extract ------------------------- #
 
 
+def _follow_html_redirect(url: UrlStr) -> UrlStr:
+    """Resolve HTML indirections like ``<meta refresh>`` or lone links."""
+
+    headers: dict[str, str] = {"User-Agent": UA}
+    current: UrlStr = url
+    for _ in range(5):
+        try:
+            head = requests.head(
+                current, headers=headers, allow_redirects=True, timeout=TIMEOUT
+            )
+        except requests.RequestException:
+            break
+        ctype: str = head.headers.get("Content-Type", "")
+        if "text/html" not in ctype.lower():
+            return current
+        resp: requests.Response = http_get(
+            current, f"Indirect fetch {current}", headers=headers
+        )
+        soup = BeautifulSoup(resp.text, "lxml")
+        meta = soup.find("meta", attrs={"http-equiv": re.compile("^refresh$", re.I)})
+        if isinstance(meta, Tag):
+            content_attr = meta.get("content", "")
+            match = re.search(r"url=([^;]+)", str(content_attr), flags=re.I)
+            if match:
+                current = uparse.urljoin(current, match.group(1).strip())
+                continue
+        anchor = soup.find("a", href=True)
+        if isinstance(anchor, Tag):
+            current = uparse.urljoin(current, str(anchor["href"]))
+            continue
+        break
+    return current
+
+
 def _filename_from_response(response: httpx.Response) -> str:
     """Derive a filename from *response* headers or URL."""
     cd: Optional[str] = response.headers.get("Content-Disposition")
@@ -339,7 +373,11 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     """Download *url* into *download_dir*; yields Path."""
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    initial_name: str = Path(uparse.urlparse(url).path).name or f"download{int(time.time())}"
+    resolved: UrlStr = _follow_html_redirect(url)
+    if resolved != url:
+        logger.debug("resolved indirect download %s -> %s", url, resolved)
+
+    initial_name: str = Path(uparse.urlparse(resolved).path).name or f"download{int(time.time())}"
     dest: Path = download_dir / initial_name
     resume_pos: int = dest.stat().st_size if dest.exists() else 0
     headers: dict[str, str] = {"User-Agent": UA}
@@ -348,10 +386,10 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
 
     with httpx.Client(timeout=TIMEOUT, follow_redirects=True) as client:
         try:
-            with client.stream("GET", url, headers=headers) as response:
+            with client.stream("GET", resolved, headers=headers) as response:
                 if response.status_code not in {200, 206}:
                     dest.unlink(missing_ok=True)
-                    raise DownloadError(f"HTTP {response.status_code} for {url}")
+                    raise DownloadError(f"HTTP {response.status_code} for {resolved}")
                 final_name: str = _filename_from_response(response)
                 if final_name != dest.name:
                     dest = dest.with_name(final_name)
