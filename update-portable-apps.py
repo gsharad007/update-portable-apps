@@ -12,10 +12,11 @@ Key design points
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
 
-3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``
+3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``,
+``requests_html`` (optional for JS-driven pages)
 Install once:
 ```
-pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5
+pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5 requests-html
 ```
 """
 
@@ -246,40 +247,71 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     raise AssetNotFoundError(f"No GitLab asset in {repo} matches /{pattern}/i")
 
 
-def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
-    """Scrape *page_url*, parse <a href> links, return (version?, url) of first match.
+def _render_with_headless(page_url: UrlStr) -> str:
+    """Render ``page_url`` using a headless browser and return HTML."""
+    try:
+        from requests_html import HTMLSession  # type: ignore
+    except Exception as exc:  # pragma: no cover - optional dependency
+        raise NetworkError(
+            f"Headless scraping requires requests_html: {exc}") from exc
 
-    Uses BeautifulSoup (lxml/html.parser) for robust HTML parsing and resolves
-    relative links using <base href> when present.
+    session = HTMLSession()
+    try:
+        resp = session.get(page_url, headers={"User-Agent": UA}, timeout=TIMEOUT)
+        # Give the page a moment for JS-driven navigation/content
+        resp.html.render(timeout=TIMEOUT, sleep=2)
+        return resp.html.html
+    except Exception as exc:
+        raise NetworkError(f"Headless fetch {page_url}: {exc}") from exc
+    finally:
+        session.close()
+
+
+def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
+    """Scrape *page_url*, parse ``<a href>`` links and return ``(version?, url)``.
+
+    First attempts a simple ``requests`` fetch.  If no matching link is found,
+    falls back to a headless browser via ``requests_html`` to render dynamic
+    content before parsing.
     """
+
+    def _extract(html: str) -> Optional[Tuple[str, UrlStr]]:
+        soup = BeautifulSoup(html, "lxml")
+
+        base_tag = soup.find("base", href=True)
+        if isinstance(base_tag, Tag):
+            href_val = base_tag.get("href")
+            base_href: str = str(href_val) if href_val else ""
+            effective_base: UrlStr = uparse.urljoin(page_url, base_href)
+        else:
+            effective_base = page_url
+
+        rx = re.compile(pattern, re.I)
+        for a in soup.find_all("a", href=True):
+            raw_href = str(a["href"])  # ensure str for typing
+            url = uparse.urljoin(effective_base, raw_href)
+            scheme = uparse.urlparse(url).scheme.lower()
+            if scheme not in ("http", "https"):
+                continue
+            m = rx.search(url) or rx.search(a.get_text(strip=True))
+            if m:
+                version = m.group(1) if m.lastindex and m.lastindex >= 1 else ""
+                return version, url
+        return None
+
     logger.debug(f"direct download page {page_url}")
     resp: requests.Response = http_get(
         page_url, f"Page fetch {page_url}", headers={"User-Agent": UA}
     )
+    result = _extract(resp.text)
+    if result:
+        return result
 
-    soup = BeautifulSoup(resp.text, "lxml")
-
-    # Determine effective base for relative links
-    base_tag = soup.find("base", href=True)
-    if isinstance(base_tag, Tag):
-        href_val = base_tag.get("href")
-        base_href: str = str(href_val) if href_val else ""
-        effective_base: UrlStr = uparse.urljoin(page_url, base_href)
-    else:
-        effective_base = page_url
-
-    rx = re.compile(pattern, re.I)
-    for a in soup.find_all("a", href=True):
-        raw_href = str(a["href"])  # ensure str for typing
-        url = uparse.urljoin(effective_base, raw_href)
-        scheme = uparse.urlparse(url).scheme.lower()
-        # logger.debug(f"direct download page links: '{a}' '{url}' '{a.get_text(strip=True)}'")
-        if scheme not in ("http", "https"):
-            continue
-        m = rx.search(url) or rx.search(a.get_text(strip=True))
-        if m:
-            version = m.group(1) if m.lastindex and m.lastindex >= 1 else ""
-            return version, url
+    logger.debug("simple scrape failed, trying headless browser for %s", page_url)
+    html = _render_with_headless(page_url)
+    result = _extract(html)
+    if result:
+        return result
 
     raise AssetNotFoundError(f"No link in {page_url} matches /{pattern}/i")
 
