@@ -13,10 +13,13 @@ Key design points
 * **Single-file** so you can still «just drop it into a USB».
 
 3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``,
-``requests_html`` (optional for JS-driven pages)
+``beautifulsoup4``, ``lxml`` and ``requests_html`` + ``lxml_html_clean`` (optional
+for JS-driven pages).
+
 Install once:
 ```
-pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5 requests-html
+pip install -U requests httpx tqdm rich py7zr beautifulsoup4 lxml json5
+pip install -U requests-html lxml_html_clean  # optional headless support
 ```
 """
 
@@ -34,6 +37,7 @@ import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from importlib.util import find_spec
 from pathlib import Path
 from typing import (
     Final,
@@ -250,21 +254,23 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
 
 def _render_with_headless(page_url: UrlStr) -> str:
     """Render ``page_url`` using a headless browser and return HTML."""
-    try:
-        from requests_html import HTMLSession
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional dep
-        raise NetworkError("Headless scraping requires requests_html") from exc
+    if not (find_spec("requests_html") and find_spec("lxml_html_clean")):
+        raise NetworkError(
+            "Headless scraping requires requests_html and lxml_html_clean"
+        )
 
-    try:
-        with HTMLSession() as session:
-            resp = session.get(
-                page_url, headers={"User-Agent": UA}, timeout=TIMEOUT
-            )
-            html_obj = resp.html
+    from requests_html import HTML, HTMLResponse, HTMLSession
+
+    with HTMLSession() as session:
+        resp: HTMLResponse = session.get(
+            page_url, headers={"User-Agent": UA}, timeout=TIMEOUT
+        )
+        html_obj: HTML = resp.html
+        try:
             html_obj.render(timeout=TIMEOUT, sleep=HEADLESS_WAIT)
-            html: str = html_obj.html
-    except Exception as exc:  # pragma: no cover - network/browser
-        raise NetworkError(f"Headless fetch {page_url}: {exc}") from exc
+        except Exception as exc:  # pragma: no cover - network/browser
+            raise NetworkError(f"Headless fetch {page_url}: {exc}") from exc
+        html: str = html_obj.html
     return html
 
 
