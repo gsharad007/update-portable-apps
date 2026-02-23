@@ -879,7 +879,30 @@ def display_final_summary(
 # ---------------------------------------------------------------------------
 
 
-def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
+def _normalize_for_kind(item: dict, kind: str) -> Optional[dict]:
+    """Normalize a raw entry dict for the requested *kind* ("portable" or "installer").
+
+    Prefixed fields such as ``portable_regex`` or ``installer_url`` are mapped
+    to their base names (``asset_regex``, ``url``).  Fields belonging to the
+    other kind are dropped.  Neutral fields (``name``, ``github_repo``,
+    ``page_url``, etc.) pass through unchanged.
+
+    Returns ``None`` when the entry carries no fields for *kind*, meaning it
+    should be skipped by this script.
+    """
+    other = "installer" if kind == "portable" else "portable"
+    normalized: dict = {}
+    has_kind_fields = False
+    for key, val in item.items():
+        if key.startswith(f"{kind}_"):
+            normalized[key[len(kind) + 1:]] = val
+            has_kind_fields = True
+        elif not key.startswith(f"{other}_"):
+            normalized[key] = val
+    return normalized if has_kind_fields else None
+
+
+def _parse_config(text: str, cfg_path: Path, kind: str = "portable") -> List[AppConfig]:
     """Convert JSON text into ``AppConfig`` objects.
 
     Parameters
@@ -888,6 +911,10 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
         Raw JSON configuration.
     cfg_path:
         Path to the configuration file, used only for error messages.
+    kind:
+        Which variant to load (``"portable"`` or ``"installer"``).  Each raw
+        entry is normalized via :func:`_normalize_for_kind`; entries that carry
+        no fields for *kind* are skipped.
 
     Returns
     -------
@@ -916,8 +943,11 @@ def _parse_config(text: str, cfg_path: Path) -> List[AppConfig]:
     for idx, item in enumerate(raw, start=1):
         if not isinstance(item, dict):
             raise ConfigError(f"{cfg_path} entry #{idx}: expected object")
+        normalized = _normalize_for_kind(item, kind)
+        if normalized is None:
+            continue
         try:
-            configs.append(AppConfig(**item))
+            configs.append(AppConfig(**normalized))
         except TypeError as exc:  # noqa: PERF203 - provide context
             raise ConfigError(f"{cfg_path} entry #{idx}: {exc}") from exc
 
@@ -932,7 +962,7 @@ def load_config(cfg_path: Path) -> List[AppConfig]:
         raise ConfigError(f"Missing config file: {cfg_path}")
 
     text: str = cfg_path.read_text(encoding="utf-8")
-    configs: List[AppConfig] = _parse_config(text, cfg_path)
+    configs: List[AppConfig] = _parse_config(text, cfg_path, kind="portable")
 
     logger.info("Loaded %d app definitions", len(configs))
     return configs

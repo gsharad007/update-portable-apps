@@ -1,206 +1,297 @@
-// This configuration file supports comments.
-// Comment out app blocks with // or /* */ to disable them temporarily.
+// Combined app definitions for portable apps and installers.
+// Comment out or remove entries to disable them.
+//
+// Field naming conventions:
+//   portable_regex / installer_regex  — asset filter for that variant
+//   portable_url   / installer_url    — direct download URL for that variant
+//   portable_page_url / installer_page_url — scrape page when the two variants
+//                                            live on different pages
+//   page_url  (no prefix)  — shared scrape page when both variants are on the
+//                            same page (paired with portable_regex/installer_regex)
+//   github_repo / gitlab_repo — always shared; the regex fields select the asset
+//
+// update-portable-apps.py  loads entries that carry any  portable_*  field.
+// update-installers.py     loads entries that carry any  installer_* field.
+// An entry may carry both sets of fields and will be picked up by both scripts.
 [
-  // ─── GitHub-based apps (most reliable) ─────────────────────────────────
+  // ─── GitHub-based apps ──────────────────────────────────────────────────
   {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
-    "asset_regex": "rufus-[0-9.]+p\\.exe$"
+    "portable_regex": "rufus-[0-9.]+p\\.exe$",
+    "installer_regex": "rufus-[0-9.]+\\.exe$"    // non-portable exe (no "p" suffix)
   },
   {
     "name": "VSCode",
     "github_repo": "portapps/vscode-portable",
-    "asset_regex": "vscode-portable-win64\\.exe$"
+    "portable_regex": "vscode-portable-win64\\.exe$"
   },
   {
     "name": "VSCodium",
     "github_repo": "VSCodium/vscodium",
-    "asset_regex": "VSCodium-win32-x64-.*?\\.zip$"
+    "portable_regex": "VSCodium-win32-x64-.*?\\.zip$",
+    "installer_regex": "VSCodiumSetup-x64-[0-9.]+\\.exe$"
   },
   {
     "name": "FanControl",
     "github_repo": "Rem0o/FanControl.Releases",
-    "asset_regex": "FanControl_.*_net_.*\\.zip$"
+    "portable_regex": "FanControl_.*_net_.*\\.zip$",
+    "installer_regex": "FanControl_.*_net_.*_Installer\\.exe$"
   },
   {
     "name": "Ventoy",
     "github_repo": "ventoy/Ventoy",
-    "asset_regex": "ventoy-.*-windows\\.zip$"
+    "portable_regex": "ventoy-.*-windows\\.zip$"
   },
   {
     "name": "Notepad++",
     "github_repo": "notepad-plus-plus/notepad-plus-plus",
-    "asset_regex": "npp\\..*\\.portable\\.minimalist\\.x64\\.7z$"
+    "portable_regex": "npp\\..*\\.portable\\.minimalist\\.x64\\.7z$",
+    "installer_regex": "npp\\.[0-9.]+\\.Installer\\.x64\\.exe$"
   },
   {
     "name": "GSmartControl",
     "github_repo": "ashaduri/gsmartcontrol",
-    "asset_regex": "gsmartcontrol-.*-win64\\.zip$"
+    "portable_regex": "gsmartcontrol-.*-win64\\.zip$",
+    "installer_regex": "gsmartcontrol-.*-win64\\.exe$"
   },
   {
     "name": "MultiPar",
     "github_repo": "Yutaka-Sawada/MultiPar",
-    "asset_regex": "MultiPar(.*?)\\.zip$"
+    "portable_regex": "MultiPar(.*?)\\.zip$",
+    "installer_regex": "MultiPar[0-9]+_setup\\.exe$"
   },
   {
     // Fixed: was page_url to imagemagick.org which needed headless; GitHub has portable builds
     "name": "ImageMagick",
     "github_repo": "ImageMagick/ImageMagick",
-    "asset_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.7z$"
+    "portable_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.7z$",
+    "installer_regex": "ImageMagick-[0-9.]+-Q16-x64-dll\\.exe$"
   },
   {
     "name": "TestMem5",
     "github_repo": "CoolCmd/TestMem5",
-    "asset_regex": "TestMem5\\.7z$"
+    "portable_regex": "TestMem5\\.7z$"
   },
   {
     "name": "Phoronix Test Suite",
     "github_repo": "phoronix-test-suite/phoronix-test-suite",
-    "asset_regex": "phoronix-test-suite-[0-9.]+\\.tar\\.gz$"
+    "portable_regex": "phoronix-test-suite-[0-9.]+\\.tar\\.gz$"
+  },
+  {
+    "name": "7-Zip",
+    "github_repo": "ip7z/7zip",
+    "installer_regex": "7z[0-9]+-x64\\.exe$"
+  },
+  {
+    "name": "Git-for-Windows",
+    "github_repo": "git-for-windows/git",
+    "installer_regex": "Git-[0-9.]+-64-bit\\.exe$"
+  },
+  {
+    "name": "Java-JDK-Temurin21",
+    "github_repo": "adoptium/temurin21-binaries",
+    "installer_regex": "OpenJDK21U-jdk_x64_windows_hotspot_[0-9._]+\\.msi$"
   },
 
   // ─── GitLab-based apps ─────────────────────────────────────────────────
   {
     "name": "libreWolf",
     "gitlab_repo": "librewolf-community/browser/bsys6",
-    "asset_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
+    "portable_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
   },
 
   // ─── Direct URL downloads (stable links, always latest) ────────────────
   {
     "name": "HDDScan",
-    "url": "https://hddscan.com/download/HDDScan.zip"
+    "portable_url": "https://hddscan.com/download/HDDScan.zip"
   },
   {
     "name": "BurnInTest",
-    "url": "https://www.passmark.com/downloads/BurnInTest_Linux_x86-64.tar.gz"
+    "portable_url": "https://www.passmark.com/downloads/BurnInTest_Linux_x86-64.tar.gz"
   },
   {
     "name": "MemTest86",
-    "url": "https://www.memtest86.com/downloads/memtest86-usb.zip"
+    "portable_url": "https://www.memtest86.com/downloads/memtest86-usb.zip"
   },
   {
     "name": "OCCT",
-    "url": "https://www.ocbase.com/download/edition:Personal"
+    "portable_url": "https://www.ocbase.com/download/edition:Personal"
   },
   {
     "name": "Win-Debloat-Tools",
-    "url": "https://github.com/LeDragoX/Win-Debloat-Tools/archive/main.zip"
+    "portable_url": "https://github.com/LeDragoX/Win-Debloat-Tools/archive/main.zip"
+  },
+  {
+    "name": "Firefox",
+    "installer_url": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US"
+  },
+  {
+    "name": "Chrome",
+    "installer_url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe"
+  },
+  {
+    "name": "VC++-Redist",
+    "installer_url": "https://aka.ms/vc14/vc_redist.x64.exe"
+  },
+  {
+    "name": "DotNet-SDK-10",
+    "installer_url": "https://aka.ms/dotnet/10.0/dotnet-sdk-win-x64.exe"
+  },
+  {
+    "name": "DotNet-Runtime-10",
+    "installer_url": "https://aka.ms/dotnet/10.0/dotnet-runtime-win-x64.exe"
+  },
+  {
+    "name": "DotNet-SDK-8-LTS",
+    "installer_url": "https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.exe"
   },
 
   // ─── Page-scraped apps ─────────────────────────────────────────────────
   {
     "name": "OpenRGB",
     "page_url": "https://openrgb.org/releases.html",
-    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip"
+    "portable_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip"
   },
   {
     "name": "SysinternalsSuite",
     "page_url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite",
-    "asset_regex": "SysinternalsSuite\\.zip$"
+    "portable_regex": "SysinternalsSuite\\.zip$"
   },
   {
     "name": "OpenHardwareMonitor",
     "page_url": "https://openhardwaremonitor.org/downloads/",
-    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$"
+    "portable_regex": "openhardwaremonitor-(.*?)\\.zip$"
   },
   {
     "name": "Prime95",
     "page_url": "https://prime95.net/download/",
-    "asset_regex": "p95v(.*?)\\.win64\\.zip$"
+    "portable_regex": "p95v(.*?)\\.win64\\.zip$"
   },
   {
     "name": "Memtest86+",
     "page_url": "https://memtest.org/",
-    "asset_regex": "mt86plus_(.*?)_USB_Installer.exe$"
+    "portable_regex": "mt86plus_(.*?)_USB_Installer.exe$"
   },
   {
     "name": "SDIO",
     "page_url": "https://www.glenn.delahoy.com/snappy-driver-installer-origin/",
-    "asset_regex": "SDIO_(.*?)\\.zip$"
+    "portable_regex": "SDIO_(.*?)\\.zip$"
   },
   {
     "name": "CPU-Z",
     "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-    "asset_regex": "cpu-z_(.*?)-en\\.zip"
+    "portable_regex": "cpu-z_(.*?)-en\\.zip",
+    "installer_regex": "cpu-z_(.*?)-en\\.exe"
   },
   {
     "name": "HWMonitor",
     "page_url": "https://www.cpuid.com/softwares/hwmonitor.html",
-    "asset_regex": "hwmonitor_(.*?)\\.zip$"
+    "portable_regex": "hwmonitor_(.*?)\\.zip$",
+    "installer_regex": "hwmonitor_(.*?)\\.exe$"
   },
   {
     "name": "HWMonitor-Pro",
     "page_url": "https://www.cpuid.com/softwares/hwmonitor-pro.html",
-    "asset_regex": "hwmonitor-pro_(.*?)\\.zip$"
+    "portable_regex": "hwmonitor-pro_(.*?)\\.zip$"
   },
   {
-    // Fixed: was page_url to hwinfo.com which returned 403; SourceForge has portable builds
+    // Installer lives on a different SourceForge path than the portable build
     "name": "HWInfo",
-    "page_url": "https://sourceforge.net/projects/hwinfo/files/Windows_Portable/",
-    "asset_regex": "hwi_(.*?)\\.zip"
+    "portable_page_url": "https://sourceforge.net/projects/hwinfo/files/Windows_Portable/",
+    "portable_regex": "hwi_(.*?)\\.zip",
+    "installer_page_url": "https://sourceforge.net/projects/hwinfo/files/Windows_Installer/",
+    "installer_regex": "hwi64_(.*?)\\.exe"
   },
   {
     // Fixed: was page_url to sourceforge download redirect; use file listing instead
     "name": "HeavyLoad",
     "page_url": "https://sourceforge.net/projects/heavyload/files/",
-    "asset_regex": "HeavyLoad-x64\\.zip"
+    "portable_regex": "HeavyLoad-x64\\.zip"
   },
   {
     "name": "FurMark 2",
     "page_url": "https://sourceforge.net/projects/furmark/files/",
-    "asset_regex": "FurMark_(.*?)_win64\\.zip"
+    "portable_regex": "FurMark_(.*?)_win64\\.zip"
   },
   {
     "name": "CrystalMarkRetro",
     "page_url": "https://sourceforge.net/projects/crystalmarkretro/files/",
-    "asset_regex": "CrystalMarkRetro(.*?)\\.zip"
+    "portable_regex": "CrystalMarkRetro(.*?)\\.zip"
   },
   {
     "name": "Beyond Compare",
     "page_url": "https://www.scootersoftware.com/download",
-    "asset_regex": "BCompare-(.*?)\\.exe$"
+    "portable_regex": "BCompare-(.*?)\\.exe$"
   },
   {
+    // Installer uses a dedicated latesta64xe URL; portable uses the main downloads page
     "name": "AIDA64 Extreme",
-    "page_url": "https://www.aida64.com/downloads",
-    "asset_regex": "aida64extreme(.*?)\\.exe$"
+    "portable_page_url": "https://www.aida64.com/downloads",
+    "portable_regex": "aida64extreme(.*?)\\.exe$",
+    "installer_page_url": "https://www.aida64.com/downloads/latesta64xe",
+    "installer_regex": "aida64extreme(.*?)\\.exe$"
   },
   {
     "name": "Linpack Xtreme",
     "page_url": "https://linpack-xtreme.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
+    "portable_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
   },
   {
     "name": "IntelBurnTest",
     "page_url": "https://intelburntest.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/intelburntest/"
+    "portable_regex": "https://www.lo4d.com/get-file/intelburntest/"
   },
   {
     "name": "EmsisoftEmergencyKit",
     "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
-    "asset_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
+    "portable_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
   },
   {
     "name": "AMD-Ryzen-Master",
     "page_url": "https://amd-ryzen-master.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/amd-ryzen-master/"
+    "portable_regex": "https://www.lo4d.com/get-file/amd-ryzen-master/"
   },
   {
     "name": "Microsoft-Safety-Scanner",
     "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
-    "asset_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
+    "portable_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
   },
   {
     "name": "CrystalDiskInfo",
     "page_url": "https://crystaldiskinfo.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskinfo/"
+    "portable_regex": "https://www.lo4d.com/get-file/crystaldiskinfo/"
   },
   {
     // Fixed: was incorrectly using github_repo with a URL; changed to page_url
     "name": "CrystalDiskMark",
     "page_url": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
+    "portable_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
+  },
+  {
+    "name": "WinRAR",
+    "page_url": "https://www.rarlab.com/download.htm",
+    "installer_regex": "winrar-x64-(\\d+)\\.exe$"
+  },
+  {
+    "name": "VLC",
+    "page_url": "https://get.videolan.org/vlc/last/win64/",
+    "installer_regex": "vlc-([0-9.]+)-win64\\.exe$"
+  },
+  {
+    "name": "PuTTY",
+    "page_url": "https://the.earth.li/~sgtatham/putty/latest/w64/",
+    "installer_regex": "putty-64bit-([0-9.]+)-installer\\.msi$"
+  },
+  {
+    "name": "WinSCP",
+    "page_url": "https://winscp.net/eng/downloads.php",
+    "installer_regex": "WinSCP-([0-9.]+)-Setup\\.exe"
+  },
+  {
+    "name": "FileZilla",
+    "page_url": "https://sourceforge.net/projects/filezilla/files/",
+    "installer_regex": "FileZilla_([0-9.]+)_win64-setup\\.exe"
   }
 
   // ─── Unavailable / manual-only (no reliable automated source) ──────────
