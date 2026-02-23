@@ -127,6 +127,13 @@ class NetworkError(GrabPortablesError):
     """Raised when a network request fails."""
 
 
+class UserQuit(SystemExit):
+    """Raised when the user chooses to quit."""
+
+    def __init__(self) -> None:
+        super().__init__(0)
+
+
 class AppStatus(Enum):
     """Outcome of the check phase for a single app."""
 
@@ -566,9 +573,22 @@ def extract_archive(archive: Path, dest: Path) -> None:
             raise GrabPortablesError("destination in use or locked") from exc
 
 
+def _safe_input(prompt: str) -> str:
+    """Read input, raising ``UserQuit`` on Ctrl+C or 'q'/'quit'."""
+    try:
+        ans: str = input(prompt).strip()
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[bold]Aborted.[/bold]")
+        raise UserQuit()
+    if ans.lower() in ("q", "quit"):
+        console.print("[bold]Quitting.[/bold]")
+        raise UserQuit()
+    return ans
+
+
 def prompt_yes_no(question: str, default: bool = True) -> bool:
-    default_txt: str = "Y/n" if default else "y/N"
-    ans = input(f"{question} ({default_txt}) ").strip().lower()
+    default_txt: str = "Y/n/q" if default else "y/N/q"
+    ans = _safe_input(f"{question} ({default_txt}) ").lower()
     if not ans:
         return default
     return ans in {"y", "yes"}
@@ -687,9 +707,9 @@ def _prompt_specific_selection(updatable: List[CheckResult]) -> List[CheckResult
     for i, r in enumerate(updatable, 1):
         console.print(f"  [bold]{i}[/bold]. {r.cfg.name}  ({r.tag or '?'})")
 
-    raw: str = input(
-        "\nEnter numbers separated by commas/spaces (e.g. 1,3,5): "
-    ).strip()
+    raw: str = _safe_input(
+        "\nEnter numbers separated by commas/spaces (e.g. 1,3,5), or q to quit: "
+    )
 
     if not raw:
         return []
@@ -726,8 +746,9 @@ def prompt_selection(results: List[CheckResult]) -> List[CheckResult]:
     console.print("  [bold]A[/bold] = Download all updates")
     console.print("  [bold]S[/bold] = Select specific apps")
     console.print("  [bold]N[/bold] = Skip all downloads")
+    console.print("  [bold]Q[/bold] = Quit")
 
-    choice: str = input("\nYour choice [A/s/n]: ").strip().lower()
+    choice: str = _safe_input("\nYour choice [A/s/n/q]: ").lower()
 
     if choice in ("n", "no", "none"):
         return []
@@ -974,4 +995,8 @@ def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[bold]Aborted.[/bold]")
+        sys.exit(0)
