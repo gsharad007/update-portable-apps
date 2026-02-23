@@ -1,14 +1,13 @@
-"""update-portable-apps.py
-Download and extract portable apps declared in ``apps.json``.
-Runs on Python >=3.10.
+"""update-installers.py
+Download installer (non-portable) versions of apps declared in
+``apps.json``.  Runs on Python >=3.10.
 
-Archives are extracted into versioned folders under --download-dir;
-a temporary staging directory (.downloads/) is used and cleaned up
-after each run.
+Downloaded files are kept as-is inside ``{name}_{tag}/`` folders;
+no archive extraction is performed.
 
 3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``json5``,
-``beautifulsoup4``, ``lxml``.  Optional: ``py7zr``, ``requests_html``,
-``lxml_html_clean`` (headless scraping / 7z extraction).
+``beautifulsoup4``, ``lxml``.  Optional: ``requests_html``,
+``lxml_html_clean`` (headless scraping).
 
 Install once:
 ```
@@ -30,7 +29,6 @@ from core import (
     DownloadResult,
     arg_parser,
     download_file,
-    extract_archive,
     load_config,
     run_phases,
 )
@@ -39,7 +37,7 @@ from core import (
 # Logging
 # ---------------------------------------------------------------------------
 
-LOG_FILE = "grab-portables.log"
+LOG_FILE = "grab-installers.log"
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -50,22 +48,22 @@ logging.basicConfig(
     ],
 )
 
-# Backwards-compatibility alias used by any external code that imports this.
-GrabPortablesError = AppError
+# Backwards-compatibility alias.
+GrabInstallersError = AppError
 
 
 # ---------------------------------------------------------------------------
-# Portable-specific download function
+# Installer-specific download function (no extraction)
 # ---------------------------------------------------------------------------
 
 
-def _download_and_extract(check: CheckResult, temp_dir: Path) -> DownloadResult:
-    """Download *check*'s archive into *temp_dir*, then extract to dest_folder."""
+def _download_only(check: CheckResult, _aux: Path) -> DownloadResult:
+    """Download *check*'s file directly into its dest_folder; no extraction."""
     assert check.download_url is not None, f"{check.cfg.name}: no download URL"
     assert check.dest_folder is not None, f"{check.cfg.name}: no dest folder"
     try:
-        with download_file(check.download_url, temp_dir) as archive:
-            extract_archive(archive, check.dest_folder)
+        with download_file(check.download_url, check.dest_folder):
+            pass  # file stays on normal exit
         return DownloadResult(check=check, success=True)
     except AppError as exc:
         return DownloadResult(check=check, success=False, error_message=str(exc))
@@ -79,13 +77,13 @@ def _download_and_extract(check: CheckResult, temp_dir: Path) -> DownloadResult:
 def main(argv: Optional[List[str]] = None) -> None:
     """Program entry-point."""
     args = arg_parser(
-        "Download & install portable apps declared in apps.json"
+        "Download installer apps declared in apps.json"
     ).parse_args(argv)
 
     dl_dir = Path(args.download_dir)
 
     try:
-        configs = load_config(Path(args.config), kind="portable")
+        configs = load_config(Path(args.config), kind="installer")
     except AppError as exc:
         logging.getLogger(__name__).critical("Fatal error: %s", exc)
         sys.exit(1)
@@ -93,12 +91,10 @@ def main(argv: Optional[List[str]] = None) -> None:
     run_phases(
         configs,
         dl_dir,
-        download_fn=_download_and_extract,
-        table_title="Portable Apps Update Summary",
-        item_label="apps",
-        dl_verb="Installed",
-        aux_dir=dl_dir / ".downloads",
-        cleanup_aux=True,
+        download_fn=_download_only,
+        table_title="Installers Update Summary",
+        item_label="installers",
+        dl_verb="Downloaded",
     )
 
 
