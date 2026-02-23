@@ -557,12 +557,13 @@ def resolve_latest(cfg: AppConfig, root: Path) -> CheckResult:
                 if p.is_dir() and p.name.startswith(cfg.name) and p != dest
             )
 
-        current: Optional[Path] = older[0] if older else None
-
+        current: Optional[Path]
         if dest.exists():
             status = AppStatus.UP_TO_DATE
+            current = dest
         else:
             status = AppStatus.UPDATE_AVAILABLE
+            current = older[0] if older else None
 
         return CheckResult(
             cfg=cfg,
