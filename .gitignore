@@ -206,4 +206,75 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-**/**
+# ---------------------------------------------------------------------------
+# Downloaded app folders and temp/log artifacts
+# ---------------------------------------------------------------------------
+
+# Temp staging directory used during portable extraction
+.downloads/
+
+# Log files written by the scripts
+grab-portables.log
+grab-installers.log
+
+# App version folders (named {AppName} or {AppName}_{tag})
+# GitHub-based
+Rufus*/
+VSCode*/
+VSCodium*/
+FanControl*/
+Ventoy*/
+Notepad++*/
+GSmartControl*/
+MultiPar*/
+ImageMagick*/
+TestMem5*/
+Phoronix\ Test\ Suite*/
+7-Zip*/
+Git-for-Windows*/
+Java-JDK-Temurin21*/
+
+# GitLab-based
+libreWolf*/
+
+# Direct URL downloads
+HDDScan*/
+BurnInTest*/
+MemTest86*/
+OCCT*/
+Win-Debloat-Tools*/
+Firefox*/
+Chrome*/
+VC++-Redist*/
+DotNet-SDK-10*/
+DotNet-Runtime-10*/
+DotNet-SDK-8-LTS*/
+
+# Page-scraped
+OpenRGB*/
+SysinternalsSuite*/
+OpenHardwareMonitor*/
+Prime95*/
+Memtest86+*/
+SDIO*/
+CPU-Z*/
+HWMonitor*/
+HWMonitor-Pro*/
+HWInfo*/
+HeavyLoad*/
+FurMark\ 2*/
+CrystalMarkRetro*/
+Beyond\ Compare*/
+AIDA64\ Extreme*/
+Linpack\ Xtreme*/
+IntelBurnTest*/
+EmsisoftEmergencyKit*/
+AMD-Ryzen-Master*/
+Microsoft-Safety-Scanner*/
+CrystalDiskInfo*/
+CrystalDiskMark*/
+WinRAR*/
+VLC*/
+PuTTY*/
+WinSCP*/
+FileZilla*/
