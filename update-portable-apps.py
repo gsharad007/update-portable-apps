@@ -32,6 +32,7 @@ import json5
 import logging
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import time
@@ -476,8 +477,50 @@ def download(url: UrlStr, download_dir: Path) -> Generator[Path, None, None]:
     try:
         yield dest
     except Exception:
-        dest.unlink(missing_ok=True)
+        try:
+            dest.unlink(missing_ok=True)
+        except PermissionError:
+            logger.warning("Could not delete %s (file in use)", dest)
         raise
+
+
+def _find_7z() -> Optional[str]:
+    """Locate the 7z command-line executable."""
+    for cmd in ("7z", "7za", "7zz"):
+        if shutil.which(cmd) is not None:
+            return cmd
+    # Check standard Windows install locations
+    if sys.platform == "win32":
+        for prog_dir in (
+            Path("C:/Program Files/7-Zip"),
+            Path("C:/Program Files (x86)/7-Zip"),
+        ):
+            exe = prog_dir / "7z.exe"
+            if exe.exists():
+                return str(exe)
+    return None
+
+
+def _extract_7z_cli(archive: Path, dest: Path) -> bool:
+    """Try extracting a .7z archive using the 7z command-line tool.
+
+    Returns ``True`` on success, ``False`` if 7z is not available.
+    Raises ``GrabPortablesError`` if 7z is available but extraction fails.
+    """
+    cmd = _find_7z()
+    if cmd is None:
+        return False
+    result = subprocess.run(
+        [cmd, "x", str(archive), f"-o{dest}", "-y", "-bso0", "-bsp0"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return True
+    raise GrabPortablesError(
+        f"{archive.name}: 7z CLI failed (exit {result.returncode}): "
+        f"{result.stderr.strip()}"
+    )
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -502,8 +545,15 @@ def extract_archive(archive: Path, dest: Path) -> None:
         try:
             with py7zr.SevenZipFile(archive) as z:
                 z.extractall(dest)
-        except py7zr.Bad7zFile as exc:
-            raise GrabPortablesError(f"{archive.name}: {exc}") from exc
+        except (py7zr.Bad7zFile, Exception) as exc:
+            # py7zr doesn't support some compression methods (e.g. BCJ2).
+            # Fall back to the 7z CLI if available.
+            if _extract_7z_cli(archive, dest):
+                logger.debug("py7zr failed (%s), used 7z CLI instead", exc)
+            else:
+                raise GrabPortablesError(
+                    f"{archive.name}: py7zr failed ({exc}) and 7z CLI not available"
+                ) from exc
     else:
         # not an archive - copy or rename
         target: Path = dest / archive.name
