@@ -1,15 +1,11 @@
 // This configuration file supports comments.
 // Comment out app blocks with // or /* */ to disable them temporarily.
 [
+  // ─── GitHub-based apps (most reliable) ─────────────────────────────────
   {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
     "asset_regex": "rufus-[0-9.]+p\\.exe$"
-  },
-  {
-    "name": "libreWolf",
-    "gitlab_repo": "librewolf-community/browser/bsys6",
-    "asset_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
   },
   {
     "name": "VSCode",
@@ -27,24 +23,9 @@
     "asset_regex": "FanControl_.*_net_.*\\.zip$"
   },
   {
-    "name": "OpenRGB",
-    "page_url": "https://openrgb.org/releases.html",
-    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip"
-  },
-  {
     "name": "Ventoy",
     "github_repo": "ventoy/Ventoy",
     "asset_regex": "ventoy-.*-windows\\.zip$"
-  },
-  {
-    "name": "SysinternalsSuite",
-    "page_url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite",
-    "asset_regex": "SysinternalsSuite\\.zip$"
-  },
-  {
-    "name": "OpenHardwareMonitor",
-    "page_url": "https://openhardwaremonitor.org/downloads/",
-    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$"
   },
   {
     "name": "Notepad++",
@@ -57,9 +38,71 @@
     "asset_regex": "gsmartcontrol-.*-win64\\.zip$"
   },
   {
+    "name": "MultiPar",
+    "github_repo": "Yutaka-Sawada/MultiPar",
+    "asset_regex": "MultiPar(.*?)\\.zip$"
+  },
+  {
+    // Fixed: was page_url to imagemagick.org which needed headless; GitHub has portable builds
     "name": "ImageMagick",
-    "page_url": "https://imagemagick.org/script/download.php",
-    "asset_regex": "ImageMagick-(.*?)-portable-Q16-x64\\.zip$"
+    "github_repo": "ImageMagick/ImageMagick",
+    "asset_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.7z$"
+  },
+  {
+    "name": "TestMem5",
+    "github_repo": "CoolCmd/TestMem5",
+    "asset_regex": "TestMem5\\.7z$"
+  },
+  {
+    "name": "Phoronix Test Suite",
+    "github_repo": "phoronix-test-suite/phoronix-test-suite",
+    "asset_regex": "phoronix-test-suite-[0-9.]+\\.tar\\.gz$"
+  },
+
+  // ─── GitLab-based apps ─────────────────────────────────────────────────
+  {
+    "name": "libreWolf",
+    "gitlab_repo": "librewolf-community/browser/bsys6",
+    "asset_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
+  },
+
+  // ─── Direct URL downloads (stable links, always latest) ────────────────
+  {
+    "name": "HDDScan",
+    "url": "https://hddscan.com/download/HDDScan.zip"
+  },
+  {
+    "name": "BurnInTest",
+    "url": "https://www.passmark.com/downloads/BurnInTest_Linux_x86-64.tar.gz"
+  },
+  {
+    "name": "MemTest86",
+    "url": "https://www.memtest86.com/downloads/memtest86-usb.zip"
+  },
+  {
+    "name": "OCCT",
+    "url": "https://www.ocbase.com/download/edition:Personal"
+  },
+  {
+    "name": "Win-Debloat-Tools",
+    "url": "https://github.com/LeDragoX/Win-Debloat-Tools/archive/main.zip"
+  },
+
+  // ─── Page-scraped apps ─────────────────────────────────────────────────
+  {
+    "name": "OpenRGB",
+    "page_url": "https://openrgb.org/releases.html",
+    "asset_regex": "OpenRGB_(.*?)_Windows_64_.*?\\.zip"
+  },
+  {
+    "name": "SysinternalsSuite",
+    "page_url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite",
+    "asset_regex": "SysinternalsSuite\\.zip$"
+  },
+  {
+    "name": "OpenHardwareMonitor",
+    "page_url": "https://openhardwaremonitor.org/downloads/",
+    "asset_regex": "openhardwaremonitor-(.*?)\\.zip$"
   },
   {
     "name": "Prime95",
@@ -77,19 +120,51 @@
     "asset_regex": "SDIO_(.*?)\\.zip$"
   },
   {
-    "name": "MultiPar",
-    "github_repo": "Yutaka-Sawada/MultiPar",
-    "asset_regex": "MultiPar(.*?)\\.zip$"
+    "name": "CPU-Z",
+    "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
+    "asset_regex": "cpu-z_(.*?)-en\\.zip"
   },
   {
-    "name": "HeavyLoad",
-    "page_url": "https://sourceforge.net/projects/heavyload/files/HeavyLoad-x64.zip/download",
-    "asset_regex": "HeavyLoad-x64\\.zip$"
+    "name": "HWMonitor",
+    "page_url": "https://www.cpuid.com/softwares/hwmonitor.html",
+    "asset_regex": "hwmonitor_(.*?)\\.zip$"
   },
   {
+    "name": "HWMonitor-Pro",
+    "page_url": "https://www.cpuid.com/softwares/hwmonitor-pro.html",
+    "asset_regex": "hwmonitor-pro_(.*?)\\.zip$"
+  },
+  {
+    // Fixed: was page_url to hwinfo.com which returned 403; SourceForge has portable builds
     "name": "HWInfo",
-    "page_url": "https://www.hwinfo.com/download/",
-    "asset_regex": "hwi_(.*?)\\.zip$"
+    "page_url": "https://sourceforge.net/projects/hwinfo/files/Windows_Portable/",
+    "asset_regex": "hwi_(.*?)\\.zip"
+  },
+  {
+    // Fixed: was page_url to sourceforge download redirect; use file listing instead
+    "name": "HeavyLoad",
+    "page_url": "https://sourceforge.net/projects/heavyload/files/",
+    "asset_regex": "HeavyLoad-x64\\.zip"
+  },
+  {
+    "name": "FurMark 2",
+    "page_url": "https://sourceforge.net/projects/furmark/files/",
+    "asset_regex": "FurMark_(.*?)_win64\\.zip"
+  },
+  {
+    "name": "CrystalMarkRetro",
+    "page_url": "https://sourceforge.net/projects/crystalmarkretro/files/",
+    "asset_regex": "CrystalMarkRetro(.*?)\\.zip"
+  },
+  {
+    "name": "Beyond Compare",
+    "page_url": "https://www.scootersoftware.com/download",
+    "asset_regex": "BCompare-(.*?)\\.exe$"
+  },
+  {
+    "name": "AIDA64 Extreme",
+    "page_url": "https://www.aida64.com/downloads",
+    "asset_regex": "aida64extreme(.*?)\\.exe$"
   },
   {
     "name": "Linpack Xtreme",
@@ -97,19 +172,14 @@
     "asset_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
   },
   {
+    "name": "IntelBurnTest",
+    "page_url": "https://intelburntest.en.lo4d.com/download/mirror-hs1",
+    "asset_regex": "https://www.lo4d.com/get-file/intelburntest/"
+  },
+  {
     "name": "EmsisoftEmergencyKit",
     "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
     "asset_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
-  },
-  // {
-  //   "name": "CPU-Z-OG",
-  //   "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
-  //   "asset_regex": "cpu-z_(.*?)-en\\.zip"
-  // },
-  {
-    "name": "CPU-Z",
-    "page_url": "https://cpu-z.en.lo4d.com/download/mirror-hs1",
-    "asset_regex": "https://www.lo4d.com/get-file/cpu-z/"
   },
   {
     "name": "AMD-Ryzen-Master",
@@ -121,24 +191,21 @@
     "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
     "asset_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
   },
-  // {
-  //   "name": "CrystalDiskInfo-OG",
-  //   "github_repo": "hiyohiyo/CrystalDiskInfo",
-  //   "asset_regex": "CrystalDiskInfo.*x64\\.zip$"
-  // },
-  // {
-  //   "name": "CrystalDiskMark-OG",
-  //   "github_repo": "hiyohiyo/CrystalDiskMark",
-  //   "asset_regex": "CrystalDiskMark.*x64.*\\.zip$"
-  // }
   {
     "name": "CrystalDiskInfo",
     "page_url": "https://crystaldiskinfo.en.lo4d.com/download/mirror-hs1",
     "asset_regex": "https://www.lo4d.com/get-file/crystaldiskinfo/"
   },
   {
+    // Fixed: was incorrectly using github_repo with a URL; changed to page_url
     "name": "CrystalDiskMark",
-    "github_repo": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
+    "page_url": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
     "asset_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
   }
+
+  // ─── Unavailable / manual-only (no reliable automated source) ──────────
+  // PowerMax: discontinued legacy Maxtor tool, replaced by Seagate SeaTools
+  // Turbolan: ASUS OEM-only utility, not available as standalone download
+  // KMPlayer Portable: no official portable ZIP; only EXE installer from kmplayer.com
+  // RMPrepUSB: FossHub uses JavaScript downloads, not scrapable; also password-protected ZIPs
 ]

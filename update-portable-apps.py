@@ -11,6 +11,8 @@ Key design points
 * **Assertions** for critical invariants (fail fast in dev / CI).
 * **Graceful degradation** - one app's failure won't stop the batch.
 * **Single-file** so you can still «just drop it into a USB».
+* **Batched workflow** - checks all apps first, lets user choose, then
+  downloads and offers cleanup.
 
 3rd-party deps: ``requests``, ``httpx``, ``tqdm``, ``rich``, ``py7zr``, ``json5``,
 ``beautifulsoup4``, ``lxml`` and ``requests_html`` + ``lxml_html_clean`` (optional
@@ -36,7 +38,8 @@ import time
 import urllib.parse as uparse
 import zipfile
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from importlib.util import find_spec
 from pathlib import Path
 from typing import (
@@ -58,10 +61,14 @@ import httpx
 import py7zr
 from bs4 import BeautifulSoup, Tag
 from rich.console import Console
+from rich.table import Table
 from tqdm import tqdm
 
 __all__: Sequence[str] = (
     "AppConfig",
+    "AppStatus",
+    "CheckResult",
+    "DownloadResult",
     "GrabPortablesError",
     "ConfigError",
     "AssetNotFoundError",
@@ -119,8 +126,16 @@ class NetworkError(GrabPortablesError):
     """Raised when a network request fails."""
 
 
+class AppStatus(Enum):
+    """Outcome of the check phase for a single app."""
+
+    UP_TO_DATE = auto()
+    UPDATE_AVAILABLE = auto()
+    CHECK_FAILED = auto()
+
+
 # ---------------------------------------------------------------------------
-# Data model
+# Data model
 # ---------------------------------------------------------------------------
 
 
@@ -149,6 +164,29 @@ class AppConfig:
             raise ConfigError(f"{self.name}: asset_regex required for VCS repos")
         if self.page_url and not self.asset_regex:
             raise ConfigError(f"{self.name}: asset_regex required for page scraping")
+
+
+@dataclass(slots=True, frozen=True)
+class CheckResult:
+    """Result of resolving the latest version for one app."""
+
+    cfg: AppConfig
+    status: AppStatus
+    tag: Optional[str] = None
+    download_url: Optional[UrlStr] = None
+    dest_folder: Optional[Path] = None
+    current_folder: Optional[Path] = None
+    older_folders: tuple[Path, ...] = field(default_factory=tuple)
+    error_message: Optional[str] = None
+
+
+@dataclass(slots=True)
+class DownloadResult:
+    """Result of downloading and extracting one app."""
+
+    check: CheckResult
+    success: bool
+    error_message: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +333,8 @@ def newest_direct_asset(page_url: UrlStr, pattern: str) -> Tuple[str, UrlStr]:
 
         rx: re.Pattern[str] = re.compile(pattern, re.I)
         for a in soup.find_all("a", href=True):
+            if not isinstance(a, Tag):
+                continue
             raw_href = str(a["href"])
             url = uparse.urljoin(effective_base, raw_href)
             scheme = uparse.urlparse(url).scheme.lower()
@@ -485,58 +525,281 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Core processing
+# Phase 1: Check for updates
 # ---------------------------------------------------------------------------
 
 
-def process_app(cfg: AppConfig, download_dir: Path) -> None:
-    logger.info("Processing %s", cfg.name)
+def resolve_latest(cfg: AppConfig, root: Path) -> CheckResult:
+    """Resolve the newest version of *cfg* and classify its update status."""
+    try:
+        tag: Optional[str] = None
+        dl_url: Optional[UrlStr] = None
 
-    tag: Optional[str] = None
-    dl_url: Optional[UrlStr] = None
+        if cfg.page_url is not None:
+            tag, dl_url = newest_direct_asset(cfg.page_url, cfg.asset_regex or "")
+        elif cfg.gitlab_repo is not None:
+            tag, dl_url = newest_gitlab_asset(cfg.gitlab_repo, cfg.asset_regex or ".*")
+        elif cfg.github_repo is not None:
+            tag, dl_url = newest_github_asset(cfg.github_repo, cfg.asset_regex or ".*")
+        elif cfg.url is not None:
+            dl_url = cfg.url
+        else:  # pragma: no cover - validation prevents
+            assert_never(cast(Never, cfg))
 
-    if cfg.page_url is not None:
-        tag, dl_url = newest_direct_asset(cfg.page_url, cfg.asset_regex or "")
-    elif cfg.gitlab_repo is not None:
-        tag, dl_url = newest_gitlab_asset(cfg.gitlab_repo, cfg.asset_regex or ".*")
-    elif cfg.github_repo is not None:
-        tag, dl_url = newest_github_asset(cfg.github_repo, cfg.asset_regex or ".*")
-    elif cfg.url is not None:
-        dl_url = cfg.url
-    else:  # pragma: no cover – validation prevents
-        assert_never(cast(Never, cfg))
+        folder_name: str = f"{cfg.name}_{tag}" if tag else cfg.name
+        dest: Path = root / folder_name
 
-    root: Path = download_dir
-    root.mkdir(parents=True, exist_ok=True)
+        older: tuple[Path, ...] = ()
+        if root.exists():
+            older = tuple(
+                p
+                for p in root.iterdir()
+                if p.is_dir() and p.name.startswith(cfg.name) and p != dest
+            )
 
-    folder_name: str = f"{cfg.name}_{tag}" if tag else cfg.name
-    dest: Path = root / folder_name
+        current: Optional[Path] = older[0] if older else None
 
-    # prune older versions
-    older: List[Path] = [
-        p
-        for p in root.iterdir()
-        if p.is_dir() and p.name.startswith(cfg.name) and p != dest
-    ]
+        if dest.exists():
+            status = AppStatus.UP_TO_DATE
+        else:
+            status = AppStatus.UPDATE_AVAILABLE
 
-    if dest.exists():
-        console.log(f"[bold green]✔ {cfg.name} already up-to-date (tag {tag})")
-    else:
-        # download + extract
-        assert dl_url, "URL should be resolved by now"
-        with download(dl_url, dest) as downloaded_archive:  # type: Path
-            extract_archive(downloaded_archive, dest)
-
-        console.log(
-            f"[bold green]✔ {cfg.name} (tag {tag})[/] [bold green]✔ installed → {dest}"
+        return CheckResult(
+            cfg=cfg,
+            status=status,
+            tag=tag,
+            download_url=dl_url,
+            dest_folder=dest,
+            current_folder=current,
+            older_folders=older,
+        )
+    except GrabPortablesError as exc:
+        logger.error("%s check failed: %s", cfg.name, exc)
+        return CheckResult(
+            cfg=cfg,
+            status=AppStatus.CHECK_FAILED,
+            error_message=str(exc),
         )
 
-    if older and prompt_yes_no(
-        f"Delete older versions of {cfg.name} ({older} => {dest})?", default=True
-    ):
-        for p in older:
-            logger.debug("Deleting old version: %s", p)
-            shutil.rmtree(p, ignore_errors=True)
+
+def check_all(configs: List[AppConfig], root: Path) -> List[CheckResult]:
+    """Check all apps for available updates."""
+    results: List[CheckResult] = []
+    with console.status("[bold cyan]Checking for updates...") as status:
+        for i, cfg in enumerate(configs, 1):
+            status.update(f"[bold cyan]Checking {cfg.name} ({i}/{len(configs)})...")
+            results.append(resolve_latest(cfg, root))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: User selection
+# ---------------------------------------------------------------------------
+
+
+def display_summary_table(results: List[CheckResult]) -> None:
+    """Display a rich table summarizing check results."""
+    table = Table(title="Portable Apps Update Summary", show_lines=True)
+    table.add_column("#", style="dim", width=4, justify="right")
+    table.add_column("App", style="bold")
+    table.add_column("Current", justify="center")
+    table.add_column("Available", justify="center")
+    table.add_column("Status", justify="center")
+
+    for idx, r in enumerate(results, 1):
+        current_ver: str = "---"
+        if r.current_folder is not None:
+            prefix = r.cfg.name + "_"
+            if r.current_folder.name.startswith(prefix):
+                current_ver = r.current_folder.name[len(prefix):]
+            else:
+                current_ver = r.current_folder.name
+
+        avail_ver: str = r.tag if r.tag else "---"
+
+        if r.status == AppStatus.UP_TO_DATE:
+            status_str = "[green]Up to date[/green]"
+        elif r.status == AppStatus.UPDATE_AVAILABLE:
+            status_str = "[yellow]Update available[/yellow]"
+        else:
+            msg = r.error_message or "unknown"
+            status_str = f"[red]Error: {msg[:60]}[/red]"
+
+        table.add_row(str(idx), r.cfg.name, current_ver, avail_ver, status_str)
+
+    console.print(table)
+
+
+def _prompt_specific_selection(updatable: List[CheckResult]) -> List[CheckResult]:
+    """Show numbered list and let user pick by entering numbers."""
+    console.print("\nAvailable updates:")
+    for i, r in enumerate(updatable, 1):
+        console.print(f"  [bold]{i}[/bold]. {r.cfg.name}  ({r.tag or '?'})")
+
+    raw: str = input(
+        "\nEnter numbers separated by commas/spaces (e.g. 1,3,5): "
+    ).strip()
+
+    if not raw:
+        return []
+
+    selected: List[CheckResult] = []
+    for token in re.split(r"[,\s]+", raw):
+        try:
+            idx = int(token) - 1
+            if 0 <= idx < len(updatable):
+                selected.append(updatable[idx])
+            else:
+                console.print(f"[yellow]Ignoring out-of-range number: {token}[/yellow]")
+        except ValueError:
+            console.print(f"[yellow]Ignoring invalid input: {token}[/yellow]")
+
+    return selected
+
+
+def prompt_selection(results: List[CheckResult]) -> List[CheckResult]:
+    """Present summary and let user choose which apps to download."""
+    display_summary_table(results)
+
+    updatable: List[CheckResult] = [
+        r for r in results if r.status == AppStatus.UPDATE_AVAILABLE
+    ]
+
+    if not updatable:
+        console.print("\n[bold green]All apps are up to date!")
+        return []
+
+    console.print(
+        f"\n[bold]{len(updatable)} update(s) available.[/bold]"
+    )
+    console.print("  [bold]A[/bold] = Download all updates")
+    console.print("  [bold]S[/bold] = Select specific apps")
+    console.print("  [bold]N[/bold] = Skip all downloads")
+
+    choice: str = input("\nYour choice [A/s/n]: ").strip().lower()
+
+    if choice in ("n", "no", "none"):
+        return []
+    if choice in ("s", "select"):
+        return _prompt_specific_selection(updatable)
+    # Default: download all
+    return updatable
+
+
+# ---------------------------------------------------------------------------
+# Phase 3+4: Download & Extract
+# ---------------------------------------------------------------------------
+
+
+def download_and_extract(check: CheckResult, temp_dir: Path) -> DownloadResult:
+    """Download and extract a single app.
+
+    Uses the existing ``download()`` context manager with extraction inside the
+    ``with`` block so archive cleanup semantics are preserved.
+    """
+    assert check.download_url is not None, f"{check.cfg.name}: no download URL"
+    assert check.dest_folder is not None, f"{check.cfg.name}: no dest folder"
+
+    try:
+        with download(check.download_url, temp_dir) as archive:
+            extract_archive(archive, check.dest_folder)
+            return DownloadResult(check=check, success=True)
+    except GrabPortablesError as exc:
+        logger.error("%s download/extract failed: %s", check.cfg.name, exc)
+        return DownloadResult(
+            check=check, success=False, error_message=str(exc)
+        )
+
+
+def download_selected(
+    selected: List[CheckResult], download_dir: Path
+) -> List[DownloadResult]:
+    """Download and extract all selected apps."""
+    results: List[DownloadResult] = []
+    temp_dl_dir: Path = download_dir / ".downloads"
+
+    for i, check in enumerate(selected, 1):
+        console.rule(f"[bold blue]Downloading {check.cfg.name} ({i}/{len(selected)})")
+        result = download_and_extract(check, temp_dl_dir)
+        results.append(result)
+
+        if result.success:
+            console.print(
+                f"[bold green]  Installed {check.cfg.name} ({check.tag})"
+                f" -> {check.dest_folder}"
+            )
+        else:
+            console.print(
+                f"[bold red]  Failed: {check.cfg.name}: {result.error_message}"
+            )
+
+    # Clean up temp downloads directory
+    if temp_dl_dir.exists():
+        shutil.rmtree(temp_dl_dir, ignore_errors=True)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Cleanup old versions
+# ---------------------------------------------------------------------------
+
+
+def cleanup_old_versions(download_results: List[DownloadResult]) -> None:
+    """Offer to delete old versions of successfully updated apps."""
+    cleanable: List[tuple[str, Optional[Path], tuple[Path, ...]]] = []
+    for dr in download_results:
+        if dr.success and dr.check.older_folders:
+            cleanable.append(
+                (dr.check.cfg.name, dr.check.dest_folder, dr.check.older_folders)
+            )
+
+    if not cleanable:
+        return
+
+    console.print("\n[bold]Old versions that can be removed:[/bold]")
+    table = Table(show_lines=False)
+    table.add_column("App", style="bold")
+    table.add_column("Old Folder(s)")
+    table.add_column("New Folder", style="green")
+    for name, dest, olders in cleanable:
+        old_names = ", ".join(p.name for p in olders)
+        table.add_row(name, old_names, dest.name if dest else "?")
+    console.print(table)
+
+    if prompt_yes_no("\nDelete all old versions listed above?", default=True):
+        for _name, _dest, olders in cleanable:
+            for p in olders:
+                logger.debug("Deleting old version: %s", p)
+                shutil.rmtree(p, ignore_errors=True)
+        console.print("[green]Old versions deleted.[/green]")
+    else:
+        console.print("Old versions kept.")
+
+
+# ---------------------------------------------------------------------------
+# Final summary
+# ---------------------------------------------------------------------------
+
+
+def display_final_summary(
+    download_results: List[DownloadResult],
+    all_results: List[CheckResult],
+) -> None:
+    """Print a final summary of the session."""
+    up_to_date = sum(1 for r in all_results if r.status == AppStatus.UP_TO_DATE)
+    check_failed = sum(1 for r in all_results if r.status == AppStatus.CHECK_FAILED)
+    downloaded_ok = sum(1 for d in download_results if d.success)
+    downloaded_fail = sum(1 for d in download_results if not d.success)
+
+    console.print("\n[bold]Session Summary:[/bold]")
+    console.print(f"  Already up to date: {up_to_date}")
+    if downloaded_ok:
+        console.print(f"  [green]Successfully updated: {downloaded_ok}[/green]")
+    if downloaded_fail:
+        console.print(f"  [red]Failed to update: {downloaded_fail}[/red]")
+    if check_failed:
+        console.print(f"  [red]Version check failed: {check_failed}[/red]")
 
 
 # ---------------------------------------------------------------------------
@@ -627,16 +890,36 @@ def main(argv: Optional[List[str]] = None) -> None:  # noqa: D401
     """Program entry-point."""
     args = build_arg_parser().parse_args(argv)
     download_dir = Path(args.download_dir)
+
     try:
-        configs = load_config(args.config)
-        for cfg in configs:
-            try:
-                process_app(cfg, download_dir)
-            except GrabPortablesError as app_exc:
-                logger.error("%s failed: %s", cfg.name, app_exc)  # , exc_info=True)
+        configs: List[AppConfig] = load_config(args.config)
     except GrabPortablesError as exc:
-        logger.critical("Fatal error: %s", exc)  # , exc_info=True)
+        logger.critical("Fatal error: %s", exc)
         sys.exit(1)
+
+    # Phase 1: Check all apps for updates
+    console.rule("[bold cyan]Phase 1: Checking for updates")
+    all_results: List[CheckResult] = check_all(configs, download_dir)
+
+    # Phase 2: User selection
+    console.rule("[bold cyan]Phase 2: Review & Select")
+    selected: List[CheckResult] = prompt_selection(all_results)
+
+    if not selected:
+        console.print("[bold]Nothing to download.[/bold]")
+        display_final_summary([], all_results)
+        return
+
+    # Phase 3+4: Download and extract
+    console.rule("[bold cyan]Phase 3: Downloading & Installing")
+    download_results: List[DownloadResult] = download_selected(selected, download_dir)
+
+    # Phase 5: Cleanup old versions
+    console.rule("[bold cyan]Phase 4: Cleanup")
+    cleanup_old_versions(download_results)
+
+    # Final summary
+    display_final_summary(download_results, all_results)
 
 
 if __name__ == "__main__":  # pragma: no cover
