@@ -723,17 +723,23 @@ def check_all(configs: List[AppConfig], root: Path) -> List[CheckResult]:
 # ---------------------------------------------------------------------------
 
 
-def _normalize_entry(item: dict, kind: str) -> Optional[dict]:
+_FIELD_REMAP: dict[str, str] = {
+    "regex": "asset_regex",      # portable_regex / installer_regex → asset_regex
+}
+
+
+def _normalize_entry(item: dict[str, object], kind: str) -> Optional[dict[str, object]]:
     """Map ``{kind}_*`` fields to their base names; drop the other kind's fields.
 
     Returns ``None`` when the entry does not carry any fields for *kind*.
     """
     other = "installer" if kind == "portable" else "portable"
-    normalized: dict = {}
+    normalized: dict[str, object] = {}
     has_kind_fields = False
     for k, v in item.items():
         if k.startswith(f"{kind}_"):
-            normalized[k[len(kind) + 1:]] = v
+            base = k[len(kind) + 1:]
+            normalized[_FIELD_REMAP.get(base, base)] = v
             has_kind_fields = True
         elif not k.startswith(f"{other}_"):
             normalized[k] = v

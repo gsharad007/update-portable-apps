@@ -93,6 +93,22 @@
     "github_repo": "adoptium/temurin21-binaries",
     "installer_regex": "OpenJDK21U-jdk_x64_windows_hotspot_[0-9._]+\\.msi$"
   },
+  {
+    "name": "PeaZip",
+    "github_repo": "peazip/PeaZip",
+    "portable_regex": "peazip_portable-[0-9.]+\\.WIN64\\.zip$",
+    "installer_regex": "peazip-[0-9.]+\\.WIN64\\.exe$"
+  },
+  {
+    "name": "PresentMon",
+    "github_repo": "GameTechDev/PresentMon",
+    "installer_regex": "PresentMon-[0-9.]+-x64\\.exe$"
+  },
+  {
+    "name": "Sandboxie-Classic",
+    "github_repo": "sandboxie-plus/Sandboxie",
+    "installer_regex": "Sandboxie-Classic-x64-v[0-9.]+\\.exe$"
+  },
 
   // ─── GitLab-based apps ─────────────────────────────────────────────────
   {
@@ -107,8 +123,12 @@
     "portable_url": "https://hddscan.com/download/HDDScan.zip"
   },
   {
-    "name": "BurnInTest",
+    "name": "BurnInTest-Linux",
     "portable_url": "https://www.passmark.com/downloads/BurnInTest_Linux_x86-64.tar.gz"
+  },
+  {
+    "name": "BurnInTest-Windows",
+    "installer_url": "https://www.passmark.com/downloads/BurnInTest_Windows_x86-64.exe"
   },
   {
     "name": "MemTest86",
@@ -292,9 +312,22 @@
     "name": "FileZilla",
     "page_url": "https://sourceforge.net/projects/filezilla/files/",
     "installer_regex": "FileZilla_([0-9.]+)_win64-setup\\.exe"
+  },
+  {
+    "name": "Everything",
+    "page_url": "https://www.voidtools.com/downloads/",
+    "portable_regex": "Everything-([0-9.]+)\\.x64\\.zip$",
+    "installer_regex": "Everything-([0-9.]+)\\.x64\\.Lite-Setup\\.exe$"
+  },
+  {
+    "name": "CoreTemp",
+    "portable_url": "https://www.alcpu.com/CoreTemp/CoreTemp64.zip",
+    "installer_page_url": "https://www.alcpu.com/CoreTemp/",
+    "installer_regex": "Core-Temp-setup-v([0-9.]+)\\.exe$"
   }
 
   // ─── Unavailable / manual-only (no reliable automated source) ──────────
+  // MemTest64: TechPowerUp uses POST-form download with tokenized URLs; not scrapable
   // PowerMax: discontinued legacy Maxtor tool, replaced by Seagate SeaTools
   // Turbolan: ASUS OEM-only utility, not available as standalone download
   // KMPlayer Portable: no official portable ZIP; only EXE installer from kmplayer.com
