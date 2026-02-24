@@ -64,7 +64,7 @@ def _download_and_extract(check: CheckResult, temp_dir: Path) -> DownloadResult:
     assert check.download_url is not None, f"{check.cfg.name}: no download URL"
     assert check.dest_folder is not None, f"{check.cfg.name}: no dest folder"
     try:
-        with download_file(check.download_url, temp_dir) as archive:
+        with download_file(check.download_url, temp_dir, referer=check.cfg.referer) as archive:
             extract_archive(archive, check.dest_folder)
         return DownloadResult(check=check, success=True)
     except AppError as exc:

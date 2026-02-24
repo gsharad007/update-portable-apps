@@ -62,7 +62,7 @@ def _download_only(check: CheckResult, _aux: Path) -> DownloadResult:
     assert check.download_url is not None, f"{check.cfg.name}: no download URL"
     assert check.dest_folder is not None, f"{check.cfg.name}: no dest folder"
     try:
-        with download_file(check.download_url, check.dest_folder):
+        with download_file(check.download_url, check.dest_folder, referer=check.cfg.referer):
             pass  # file stays on normal exit
         return DownloadResult(check=check, success=True)
     except AppError as exc:

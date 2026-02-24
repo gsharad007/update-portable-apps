@@ -117,6 +117,32 @@
     "portable_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
   },
 
+  // ─── Drivers (version-pinned CDN URLs — update version manually) ────────
+  //
+  // AMD CDN requires Referer header — the "referer" field handles this.
+  // NVIDIA CDN is open — no special headers needed.
+  // Alternative: `choco install amd-ryzen-chipset` / `choco install nvidia-display-driver`
+  {
+    // AMD Chipset — update version at: https://www.amd.com/en/support/download/drivers.html
+    // Chocolatey: choco install amd-ryzen-chipset
+    "name": "AMD-Chipset",
+    "installer_url": "https://drivers.amd.com/drivers/amd_chipset_software_8.01.20.513.exe",
+    "referer": "https://www.amd.com/en/support/download/drivers.html"
+  },
+  {
+    // AMD Adrenalin GPU (WHQL) — update version at AMD support page
+    "name": "AMD-Adrenalin-GPU",
+    "installer_url": "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.1.1-win11-c.exe",
+    "referer": "https://www.amd.com/en/support/download/drivers.html"
+  },
+  {
+    // NVIDIA Game Ready Desktop (DCH/WHQL) — no Referer needed
+    // Update version from: https://www.nvidia.com/Download/index.aspx
+    // Chocolatey: choco install nvidia-display-driver
+    "name": "NVIDIA-GameReady",
+    "installer_url": "https://us.download.nvidia.com/Windows/572.83/572.83-desktop-win10-win11-64bit-international-dch-whql.exe"
+  },
+
   // ─── Direct URL downloads (stable links, always latest) ────────────────
   {
     "name": "HDDScan",

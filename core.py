@@ -151,6 +151,7 @@ class AppConfig:
     url: Optional[UrlStr] = None
     page_url: Optional[UrlStr] = None
     asset_regex: Optional[str] = None
+    referer: Optional[str] = None  # Required by some CDNs (e.g. AMD drivers.amd.com)
 
     def __post_init__(self) -> None:
         sources = [self.github_repo, self.gitlab_repo, self.url, self.page_url]
@@ -491,12 +492,19 @@ def write_stream(
 
 
 @contextmanager
-def download_file(url: UrlStr, dest_dir: Path) -> Generator[Path, None, None]:
+def download_file(
+    url: UrlStr,
+    dest_dir: Path,
+    referer: Optional[str] = None,
+) -> Generator[Path, None, None]:
     """Download *url* into *dest_dir*, yielding the resulting ``Path``.
 
     Supports HTTP range-resume, Content-Disposition filenames, and HTML
     redirect chains.  Deletes the partial file on any exception inside the
     ``with`` block.
+
+    *referer*, when set, is sent as an HTTP ``Referer`` header (required by
+    some CDNs such as AMD's ``drivers.amd.com``).
     """
     dest_dir.mkdir(parents=True, exist_ok=True)
     resolved = follow_redirects(url)
@@ -505,6 +513,8 @@ def download_file(url: UrlStr, dest_dir: Path) -> Generator[Path, None, None]:
 
     dest = dest_dir / _filename_from_url(resolved)
     resume_pos, req_headers = resume_state(dest)
+    if referer:
+        req_headers["Referer"] = referer
 
     with httpx.Client(timeout=TIMEOUT, follow_redirects=True) as client:
         try:
