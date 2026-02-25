@@ -251,31 +251,5 @@ DotNet-Runtime-10*/
 DotNet-SDK-8-LTS*/
 
 # Page-scraped
-OpenRGB*/
-SysinternalsSuite*/
-OpenHardwareMonitor*/
-Prime95*/
-Memtest86+*/
-SDIO*/
-CPU-Z*/
-HWMonitor*/
-HWMonitor-Pro*/
-HWInfo*/
-HeavyLoad*/
-FurMark\ 2*/
-CrystalMarkRetro*/
-Beyond\ Compare*/
-AIDA64\ Extreme*/
-Linpack\ Xtreme*/
-IntelBurnTest*/
-EmsisoftEmergencyKit*/
-AMD-Ryzen-Master*/
-Microsoft-Safety-Scanner*/
-CrystalDiskInfo*/
-CrystalDiskMark*/
-WinRAR*/
-VLC*/
-PuTTY*/
-WinSCP*/
-FileZilla*/
+*/*
 .vscode/

@@ -693,7 +693,14 @@ def download_file(
             dest.unlink(missing_ok=True)
             raise DownloadError(str(exc)) from exc
 
-    if dest.stat().st_size == 0:
+    try:
+        fsize = dest.stat().st_size
+    except OSError as exc:
+        raise DownloadError(
+            f"{dest.name}: file inaccessible after download — possibly quarantined "
+            f"by antivirus ({exc})"
+        ) from exc
+    if fsize == 0:
         dest.unlink(missing_ok=True)
         raise DownloadError("Downloaded zero-byte file")
 
@@ -751,6 +758,13 @@ def _extract_zip(archive: Path, dest: Path) -> None:
             zf.extractall(dest)
     except zipfile.BadZipFile as exc:
         raise AppError(f"{archive.name}: {exc}") from exc
+    except OSError as exc:
+        # Windows Defender / antivirus may quarantine files immediately after
+        # download (common with NirSoft tools).  Errno 22 = "Invalid argument"
+        # when the OS blocks opening the file.
+        raise AppError(
+            f"{archive.name}: cannot open — possibly quarantined by antivirus ({exc})"
+        ) from exc
 
 
 def _extract_tar(archive: Path, dest: Path) -> None:
