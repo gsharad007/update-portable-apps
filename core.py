@@ -11,6 +11,7 @@ wrappers that supply a single ``download_fn`` and call :func:`run_phases`.
 from __future__ import annotations
 
 import argparse
+import io
 import json5
 import logging
 import re
@@ -57,6 +58,8 @@ __all__: Sequence[str] = (
     "scrape_links", "newest_page_asset",
     # VCS
     "newest_github_asset", "newest_gitlab_asset",
+    # package managers
+    "newest_winget_asset", "newest_choco_asset",
     # source dispatch
     "fetch_latest",
     # redirect
@@ -152,12 +155,18 @@ class AppConfig:
     page_url: Optional[UrlStr] = None
     asset_regex: Optional[str] = None
     referer: Optional[str] = None  # Required by some CDNs (e.g. AMD drivers.amd.com)
+    winget_id: Optional[str] = None  # e.g. "7zip.7zip", "Google.Chrome"
+    choco_id: Optional[str] = None   # e.g. "7zip", "googlechrome"
 
     def __post_init__(self) -> None:
-        sources = [self.github_repo, self.gitlab_repo, self.url, self.page_url]
+        sources = [
+            self.github_repo, self.gitlab_repo, self.url,
+            self.page_url, self.winget_id, self.choco_id,
+        ]
         if sum(x is not None for x in sources) != 1:
             raise ConfigError(
-                f"{self.name}: specify exactly one of github_repo, gitlab_repo, url, or page_url"
+                f"{self.name}: specify exactly one of github_repo, gitlab_repo, "
+                f"url, page_url, winget_id, or choco_id"
             )
         if (self.github_repo or self.gitlab_repo) and not self.asset_regex:
             raise ConfigError(f"{self.name}: asset_regex required for VCS repos")
@@ -350,6 +359,146 @@ def newest_gitlab_asset(repo: str, pattern: str) -> Tuple[str, UrlStr]:
     return tag, _match_asset_url(assets, pattern, "url")
 
 
+# ----------------------------- winget -------------------------------------- #
+
+
+def newest_winget_asset(
+    pkg_id: str, arch: str = "x64"
+) -> Tuple[str, UrlStr]:
+    """Return ``(version, installer_url)`` from the winget-pkgs manifest on GitHub.
+
+    Fetches the manifest YAML from the ``microsoft/winget-pkgs`` repo on
+    GitHub and extracts the first ``InstallerUrl`` that matches *arch*.
+    No YAML library is needed — we parse with simple regexes.
+    """
+    # Package IDs look like "Publisher.Name"; manifest path uses the first char.
+    parts = pkg_id.split(".")
+    if len(parts) < 2:
+        raise ConfigError(f"winget_id must be Publisher.Name, got {pkg_id!r}")
+    first_char = parts[0][0].lower()
+    manifest_dir = "/".join(parts)
+
+    # List version directories via GitHub API
+    api = (
+        f"https://api.github.com/repos/microsoft/winget-pkgs"
+        f"/contents/manifests/{first_char}/{manifest_dir}"
+    )
+    resp = http_get(api, f"winget {pkg_id}")
+    entries: list[dict[str, object]] = cast(list[dict[str, object]], resp.json())
+
+    # Pick the highest version directory (semantic sort by splitting on '.')
+    versions: list[str] = [
+        str(e.get("name", ""))
+        for e in entries
+        if e.get("type") == "dir"
+    ]
+    if not versions:
+        raise AssetNotFoundError(f"winget {pkg_id}: no version directories found")
+
+    def _ver_key(v: str) -> list[int]:
+        parts_list: list[int] = []
+        for p in re.split(r"[.\-]", v):
+            try:
+                parts_list.append(int(p))
+            except ValueError:
+                parts_list.append(0)
+        return parts_list
+
+    latest = max(versions, key=_ver_key)
+    logger.debug("winget %s: latest version %s", pkg_id, latest)
+
+    # Fetch the installer manifest YAML
+    yaml_name = f"{pkg_id}.installer.yaml"
+    raw_url = (
+        f"https://raw.githubusercontent.com/microsoft/winget-pkgs"
+        f"/master/manifests/{first_char}/{manifest_dir}/{latest}/{yaml_name}"
+    )
+    yaml_text = fetch_html(raw_url)
+
+    # Parse InstallerUrl entries paired with their Architecture.
+    # The YAML structure has Installers: as a list of mappings.
+    # We look for Architecture + InstallerUrl pairs.
+    installer_blocks = re.split(r"(?m)^- ", yaml_text)
+    for block in installer_blocks:
+        arch_match = re.search(r"Architecture:\s*(\S+)", block)
+        url_match = re.search(r"InstallerUrl:\s*(\S+)", block)
+        if arch_match and url_match and arch_match.group(1).lower() == arch.lower():
+            return latest, url_match.group(1)
+
+    # Fallback: first InstallerUrl in the file regardless of arch
+    fallback = re.search(r"InstallerUrl:\s*(\S+)", yaml_text)
+    if fallback:
+        return latest, fallback.group(1)
+
+    raise AssetNotFoundError(f"winget {pkg_id} v{latest}: no InstallerUrl found")
+
+
+# ----------------------------- chocolatey --------------------------------- #
+
+
+def newest_choco_asset(pkg_id: str) -> Tuple[str, UrlStr]:
+    """Return ``(version, download_url)`` by inspecting a Chocolatey package.
+
+    Downloads the ``.nupkg`` for *pkg_id*, extracts the install script, and
+    parses the ``$url64bit`` / ``$url64`` / ``$url`` variable to find the
+    actual download URL.
+    """
+    # Step 1: query latest version from the Chocolatey v2 API (OData).
+    odata = (
+        f"https://community.chocolatey.org/api/v2/Packages()"
+        f"?$filter=Id%20eq%20%27{pkg_id}%27%20and%20IsLatestVersion"
+        f"&$select=Version"
+    )
+    resp = http_get(odata, f"choco {pkg_id}")
+    version_match = re.search(
+        r"<d:Version[^>]*>(.*?)</d:Version>", resp.text
+    )
+    if not version_match:
+        raise AssetNotFoundError(f"choco {pkg_id}: no version in API response")
+    version = version_match.group(1)
+    logger.debug("choco %s: latest version %s", pkg_id, version)
+
+    # Step 2: download the .nupkg (which is a ZIP).
+    nupkg_url = f"https://community.chocolatey.org/api/v2/package/{pkg_id}/{version}"
+    nupkg_resp = requests.get(
+        nupkg_url, timeout=TIMEOUT, headers={"User-Agent": UA}
+    )
+    if nupkg_resp.status_code != 200:
+        raise NetworkError(f"choco {pkg_id}: HTTP {nupkg_resp.status_code} for nupkg")
+
+    # Step 3: extract chocolateyInstall.ps1 from the zip.
+    try:
+        with zipfile.ZipFile(io.BytesIO(nupkg_resp.content)) as zf:
+            script: Optional[str] = None
+            for name in zf.namelist():
+                if name.lower().endswith("chocolateyinstall.ps1"):
+                    script = zf.read(name).decode("utf-8-sig", errors="replace")
+                    break
+    except zipfile.BadZipFile as exc:
+        raise AssetNotFoundError(f"choco {pkg_id}: bad nupkg: {exc}") from exc
+
+    if script is None:
+        raise AssetNotFoundError(f"choco {pkg_id}: no chocolateyInstall.ps1 in nupkg")
+
+    # Step 4: parse download URL from the PowerShell script.
+    # Common patterns: $url64bit = '...', $url64 = '...', $url = '...'
+    for var_pattern in (
+        r"\$url64(?:bit)?\s*=\s*['\"]([^'\"]+)['\"]",
+        r"['\"]?url64(?:bit)?['\"]?\s*=\s*['\"]([^'\"]+)['\"]",
+        r"\$url\s*=\s*['\"]([^'\"]+)['\"]",
+        r"['\"]?url['\"]?\s*=\s*['\"]([^'\"]+)['\"]",
+    ):
+        m = re.search(var_pattern, script, re.I)
+        if m:
+            dl_url = m.group(1)
+            if dl_url.startswith("http"):
+                return version, dl_url
+
+    raise AssetNotFoundError(
+        f"choco {pkg_id} v{version}: could not extract download URL from install script"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Source dispatch
 # ---------------------------------------------------------------------------
@@ -363,6 +512,10 @@ def fetch_latest(cfg: AppConfig) -> Tuple[Optional[str], UrlStr]:
         return newest_gitlab_asset(cfg.gitlab_repo, cfg.asset_regex or ".*")
     if cfg.github_repo is not None:
         return newest_github_asset(cfg.github_repo, cfg.asset_regex or ".*")
+    if cfg.winget_id is not None:
+        return newest_winget_asset(cfg.winget_id)
+    if cfg.choco_id is not None:
+        return newest_choco_asset(cfg.choco_id)
     if cfg.url is not None:
         return None, cfg.url
     raise AssertionError(f"AppConfig {cfg.name!r} has no source (should not happen)")

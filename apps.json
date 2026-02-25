@@ -1,25 +1,23 @@
 // Combined app definitions for portable apps and installers.
-// Comment out or remove entries to disable them.
+//
+// Source priority (most → least reliable):
+//   1. winget_id / choco_id  — package managers, auto-discovers latest version
+//   2. github_repo           — GitHub releases API, auto-discovers latest version
+//   3. gitlab_repo           — GitLab releases API, auto-discovers latest version
+//   4. page_url              — scrape HTML for download links
+//   5. url                   — static/always-latest direct download URL
 //
 // Field naming conventions:
-//   portable_regex / installer_regex  — asset filter for that variant
-//   portable_url   / installer_url    — direct download URL for that variant
-//   portable_page_url / installer_page_url — scrape page when the two variants
-//                                            live on different pages
-//   page_url  (no prefix)  — shared scrape page when both variants are on the
-//                            same page (paired with portable_regex/installer_regex)
-//   github_repo / gitlab_repo — always shared; the regex fields select the asset
-//
-// update-portable-apps.py  loads entries that carry any  portable_*  field.
-// update-installers.py     loads entries that carry any  installer_* field.
-// An entry may carry both sets of fields and will be picked up by both scripts.
+//   portable_*  fields  → picked up by update-portable-apps.py
+//   installer_* fields  → picked up by update-installers.py
+//   Unprefixed fields (name, github_repo, page_url, referer) are shared by both.
 [
-  // ─── GitHub-based apps ──────────────────────────────────────────────────
+  // ─── GitHub-based apps (auto-discovers latest release) ─────────────────
   {
     "name": "Rufus",
     "github_repo": "pbatard/rufus",
     "portable_regex": "rufus-[0-9.]+p\\.exe$",
-    "installer_regex": "rufus-[0-9.]+\\.exe$"    // non-portable exe (no "p" suffix)
+    "installer_regex": "rufus-[0-9.]+\\.exe$"
   },
   {
     "name": "VSCode",
@@ -62,7 +60,6 @@
     "installer_regex": "MultiPar[0-9]+_setup\\.exe$"
   },
   {
-    // Fixed: was page_url to imagemagick.org which needed headless; GitHub has portable builds
     "name": "ImageMagick",
     "github_repo": "ImageMagick/ImageMagick",
     "portable_regex": "ImageMagick-[0-9.]+-portable-Q16-x64\\.7z$",
@@ -117,30 +114,97 @@
     "portable_regex": "librewolf-.*?-windows-x86_64-portable\\.zip$"
   },
 
-  // ─── Drivers (version-pinned CDN URLs — update version manually) ────────
-  //
-  // AMD CDN requires Referer header — the "referer" field handles this.
-  // NVIDIA CDN is open — no special headers needed.
-  // Alternative: `choco install amd-ryzen-chipset` / `choco install nvidia-display-driver`
+  // ─── Winget-based apps (publisher-maintained manifests) ────────────────
   {
-    // AMD Chipset — update version at: https://www.amd.com/en/support/download/drivers.html
-    // Chocolatey: choco install amd-ryzen-chipset
-    "name": "AMD-Chipset",
-    "installer_url": "https://drivers.amd.com/drivers/amd_chipset_software_8.01.20.513.exe",
-    "referer": "https://www.amd.com/en/support/download/drivers.html"
+    // Was lo4d.com page scrape; winget is publisher-maintained (Crystal Dew World)
+    "name": "CrystalDiskInfo",
+    "installer_winget_id": "CrystalDewWorld.CrystalDiskInfo"
   },
   {
-    // AMD Adrenalin GPU (WHQL) — update version at AMD support page
+    // Was lo4d.com page scrape; winget is publisher-maintained (Crystal Dew World)
+    "name": "CrystalDiskMark",
+    "installer_winget_id": "CrystalDewWorld.CrystalDiskMark"
+  },
+  {
+    // Was broken page scrape; winget is publisher-maintained (FinalWire)
+    "name": "AIDA64 Extreme",
+    "installer_winget_id": "FinalWire.AIDA64.Extreme"
+  },
+  {
+    // Was page scrape; winget is publisher-maintained (Scooter Software)
+    "name": "Beyond Compare",
+    "installer_winget_id": "ScooterSoftware.BeyondCompare.5"
+  },
+  {
+    // Was page scrape; winget is publisher-maintained (RARLab)
+    "name": "WinRAR",
+    "installer_winget_id": "RARLab.WinRAR"
+  },
+  {
+    // Was page scrape; winget is publisher-maintained (VideoLAN)
+    "name": "VLC",
+    "installer_winget_id": "VideoLAN.VLC"
+  },
+  {
+    // Was page scrape; winget is publisher-maintained
+    "name": "PuTTY",
+    "installer_winget_id": "PuTTY.PuTTY"
+  },
+  {
+    // Was page scrape; winget is publisher-maintained
+    "name": "WinSCP",
+    "installer_winget_id": "WinSCP.WinSCP"
+  },
+  {
+    // Was SourceForge scrape; winget is publisher-maintained
+    "name": "FileZilla",
+    "installer_winget_id": "TimKosse.FileZillaClient"
+  },
+  {
+    // Was SourceForge scrape; winget is publisher-maintained (Crystal Dew World)
+    "name": "CrystalMarkRetro",
+    "portable_page_url": "https://sourceforge.net/projects/crystalmarkretro/files/",
+    "portable_regex": "CrystalMarkRetro(.*?)\\.zip",
+    "installer_winget_id": "CrystalDewWorld.CrystalMarkRetro"
+  },
+  {
+    // Was SourceForge scrape; winget is publisher-maintained (Geeks3D)
+    "name": "FurMark 2",
+    "portable_page_url": "https://sourceforge.net/projects/furmark/files/",
+    "portable_regex": "FurMark_(.*?)_win64\\.zip",
+    "installer_winget_id": "Geeks3D.FurMark.2"
+  },
+  {
+    // Was SourceForge scrape; winget is publisher-maintained (JAM Software)
+    "name": "HeavyLoad",
+    "portable_page_url": "https://sourceforge.net/projects/heavyload/files/",
+    "portable_regex": "HeavyLoad-x64\\.zip",
+    "installer_winget_id": "JAMSoftware.HeavyLoad"
+  },
+
+  // ─── Chocolatey-based apps ─────────────────────────────────────────────
+  {
+    // Was lo4d.com page scrape; choco is well-maintained
+    "name": "AMD-Ryzen-Master",
+    "installer_choco_id": "amd-ryzen-master"
+  },
+  {
+    // AMD Chipset — auto-resolved via Chocolatey
+    "name": "AMD-Chipset",
+    "installer_choco_id": "amd-ryzen-chipset"
+  },
+  {
+    // NVIDIA Game Ready — auto-resolved via Chocolatey
+    "name": "NVIDIA-GameReady",
+    "installer_choco_id": "nvidia-display-driver"
+  },
+
+  // ─── Drivers (version-pinned, update manually) ─────────────────────────
+  {
+    // AMD Adrenalin GPU — no chocolatey/winget package available
     "name": "AMD-Adrenalin-GPU",
     "installer_url": "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.1.1-win11-c.exe",
     "referer": "https://www.amd.com/en/support/download/drivers.html"
-  },
-  {
-    // NVIDIA Game Ready Desktop (DCH/WHQL) — no Referer needed
-    // Update version from: https://www.nvidia.com/Download/index.aspx
-    // Chocolatey: choco install nvidia-display-driver
-    "name": "NVIDIA-GameReady",
-    "installer_url": "https://us.download.nvidia.com/Windows/572.83/572.83-desktop-win10-win11-64bit-international-dch-whql.exe"
   },
 
   // ─── Direct URL downloads (stable links, always latest) ────────────────
@@ -169,14 +233,17 @@
     "portable_url": "https://github.com/LeDragoX/Win-Debloat-Tools/archive/main.zip"
   },
   {
+    // Mozilla always-latest direct link
     "name": "Firefox",
     "installer_url": "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US"
   },
   {
+    // Google always-latest offline installer
     "name": "Chrome",
     "installer_url": "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe"
   },
   {
+    // Microsoft always-latest permanent redirect
     "name": "VC++-Redist",
     "installer_url": "https://aka.ms/vc14/vc_redist.x64.exe"
   },
@@ -193,7 +260,7 @@
     "installer_url": "https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.exe"
   },
 
-  // ─── Page-scraped apps ─────────────────────────────────────────────────
+  // ─── Page-scraped apps (publisher pages, working reliably) ─────────────
   {
     "name": "OpenRGB",
     "page_url": "https://openrgb.org/releases.html",
@@ -225,12 +292,14 @@
     "portable_regex": "SDIO_(.*?)\\.zip$"
   },
   {
+    // CPUID publisher page — works for both portable ZIP and installer EXE
     "name": "CPU-Z",
     "page_url": "https://www.cpuid.com/softwares/cpu-z.html",
     "portable_regex": "cpu-z_(.*?)-en\\.zip",
     "installer_regex": "cpu-z_(.*?)-en\\.exe"
   },
   {
+    // CPUID publisher page
     "name": "HWMonitor",
     "page_url": "https://www.cpuid.com/softwares/hwmonitor.html",
     "portable_regex": "hwmonitor_(.*?)\\.zip$",
@@ -242,7 +311,7 @@
     "portable_regex": "hwmonitor-pro_(.*?)\\.zip$"
   },
   {
-    // Installer lives on a different SourceForge path than the portable build
+    // Portable and installer live on different SourceForge paths
     "name": "HWInfo",
     "portable_page_url": "https://sourceforge.net/projects/hwinfo/files/Windows_Portable/",
     "portable_regex": "hwi_(.*?)\\.zip",
@@ -250,96 +319,7 @@
     "installer_regex": "hwi64_(.*?)\\.exe"
   },
   {
-    // Fixed: was page_url to sourceforge download redirect; use file listing instead
-    "name": "HeavyLoad",
-    "page_url": "https://sourceforge.net/projects/heavyload/files/",
-    "portable_regex": "HeavyLoad-x64\\.zip"
-  },
-  {
-    "name": "FurMark 2",
-    "page_url": "https://sourceforge.net/projects/furmark/files/",
-    "portable_regex": "FurMark_(.*?)_win64\\.zip"
-  },
-  {
-    "name": "CrystalMarkRetro",
-    "page_url": "https://sourceforge.net/projects/crystalmarkretro/files/",
-    "portable_regex": "CrystalMarkRetro(.*?)\\.zip"
-  },
-  {
-    "name": "Beyond Compare",
-    "page_url": "https://www.scootersoftware.com/download",
-    "portable_regex": "BCompare-(.*?)\\.exe$"
-  },
-  {
-    // Installer uses a dedicated latesta64xe URL; portable uses the main downloads page
-    "name": "AIDA64 Extreme",
-    "portable_page_url": "https://www.aida64.com/downloads",
-    "portable_regex": "aida64extreme(.*?)\\.exe$",
-    "installer_page_url": "https://www.aida64.com/downloads/latesta64xe",
-    "installer_regex": "aida64extreme(.*?)\\.exe$"
-  },
-  {
-    "name": "Linpack Xtreme",
-    "page_url": "https://linpack-xtreme.en.lo4d.com/download/mirror-hs1",
-    "portable_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
-  },
-  {
-    "name": "IntelBurnTest",
-    "page_url": "https://intelburntest.en.lo4d.com/download/mirror-hs1",
-    "portable_regex": "https://www.lo4d.com/get-file/intelburntest/"
-  },
-  {
-    "name": "EmsisoftEmergencyKit",
-    "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
-    "portable_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
-  },
-  {
-    "name": "AMD-Ryzen-Master",
-    "page_url": "https://amd-ryzen-master.en.lo4d.com/download/mirror-hs1",
-    "portable_regex": "https://www.lo4d.com/get-file/amd-ryzen-master/"
-  },
-  {
-    "name": "Microsoft-Safety-Scanner",
-    "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
-    "portable_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
-  },
-  {
-    "name": "CrystalDiskInfo",
-    "page_url": "https://crystaldiskinfo.en.lo4d.com/download/mirror-hs1",
-    "portable_regex": "https://www.lo4d.com/get-file/crystaldiskinfo/"
-  },
-  {
-    // Fixed: was incorrectly using github_repo with a URL; changed to page_url
-    "name": "CrystalDiskMark",
-    "page_url": "https://crystaldiskmark.en.lo4d.com/download/mirror-hs1",
-    "portable_regex": "https://www.lo4d.com/get-file/crystaldiskmark/"
-  },
-  {
-    "name": "WinRAR",
-    "page_url": "https://www.rarlab.com/download.htm",
-    "installer_regex": "winrar-x64-(\\d+)\\.exe$"
-  },
-  {
-    "name": "VLC",
-    "page_url": "https://get.videolan.org/vlc/last/win64/",
-    "installer_regex": "vlc-([0-9.]+)-win64\\.exe$"
-  },
-  {
-    "name": "PuTTY",
-    "page_url": "https://the.earth.li/~sgtatham/putty/latest/w64/",
-    "installer_regex": "putty-64bit-([0-9.]+)-installer\\.msi$"
-  },
-  {
-    "name": "WinSCP",
-    "page_url": "https://winscp.net/eng/downloads.php",
-    "installer_regex": "WinSCP-([0-9.]+)-Setup\\.exe"
-  },
-  {
-    "name": "FileZilla",
-    "page_url": "https://sourceforge.net/projects/filezilla/files/",
-    "installer_regex": "FileZilla_([0-9.]+)_win64-setup\\.exe"
-  },
-  {
+    // Publisher page — both portable ZIP and installer EXE
     "name": "Everything",
     "page_url": "https://www.voidtools.com/downloads/",
     "portable_regex": "Everything-([0-9.]+)\\.x64\\.zip$",
@@ -350,6 +330,29 @@
     "portable_url": "https://www.alcpu.com/CoreTemp/CoreTemp64.zip",
     "installer_page_url": "https://www.alcpu.com/CoreTemp/",
     "installer_regex": "Core-Temp-setup-v([0-9.]+)\\.exe$"
+  },
+  {
+    "name": "EmsisoftEmergencyKit",
+    "page_url": "https://www.emsisoft.com/en/home/emergency-kit/download/",
+    "portable_regex": "https://dl.emsisoft.com/EmsisoftEmergencyKit.exe"
+  },
+  {
+    // Intentionally time-limited tool (expires after 10 days); keep lo4d
+    "name": "Microsoft-Safety-Scanner",
+    "page_url": "https://microsoft-safety-scanner.en.lo4d.com/download/mirror-ex1",
+    "portable_regex": "https://www.lo4d.com/get-file/microsoft-safety-scanner/"
+  },
+  {
+    // No better source available; lo4d mirror
+    "name": "Linpack Xtreme",
+    "page_url": "https://linpack-xtreme.en.lo4d.com/download/mirror-hs1",
+    "portable_regex": "https://www.lo4d.com/get-file/linpack-xtreme/"
+  },
+  {
+    // No better source available; lo4d mirror
+    "name": "IntelBurnTest",
+    "page_url": "https://intelburntest.en.lo4d.com/download/mirror-hs1",
+    "portable_regex": "https://www.lo4d.com/get-file/intelburntest/"
   }
 
   // ─── Unavailable / manual-only (no reliable automated source) ──────────
