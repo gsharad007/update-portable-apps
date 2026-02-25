@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import json5
 import logging
 import re
@@ -72,6 +73,8 @@ __all__: Sequence[str] = (
     "extract_archive",
     # folder / version
     "dest_name", "older_versions", "make_check_result", "failed_check",
+    # app-info cache
+    "source_type", "write_app_info",
     # phases
     "check_one", "check_all",
     # config
@@ -856,6 +859,91 @@ def failed_check(cfg: AppConfig, exc: Exception) -> CheckResult:
 
 
 # ---------------------------------------------------------------------------
+# app-info.json cache
+# ---------------------------------------------------------------------------
+
+APP_INFO_FILE: Final[str] = "app-info.json"
+
+
+def source_type(cfg: AppConfig) -> str:
+    """Return the source type string for *cfg*."""
+    if cfg.github_repo:
+        return "github"
+    if cfg.gitlab_repo:
+        return "gitlab"
+    if cfg.winget_id:
+        return "winget"
+    if cfg.choco_id:
+        return "choco"
+    if cfg.page_url:
+        return "page"
+    if cfg.url:
+        return "url"
+    return "unknown"
+
+
+def _newest_file_in(folder: Path) -> Optional[str]:
+    """Return the name of the most recently modified file in *folder*,
+    excluding ``app-info.json`` itself.  Returns ``None`` if empty."""
+    best: Optional[Path] = None
+    best_mtime: float = 0.0
+    for p in folder.iterdir():
+        if not p.is_file() or p.name == APP_INFO_FILE:
+            continue
+        mt = p.stat().st_mtime
+        if best is None or mt > best_mtime:
+            best, best_mtime = p, mt
+    return best.name if best else None
+
+
+def write_app_info(
+    check: CheckResult,
+    filename: Optional[str] = None,
+) -> None:
+    """Write (or update) ``app-info.json`` inside *check.dest_folder*.
+
+    Silently skips if the destination folder does not exist (e.g. the app
+    hasn't been downloaded yet or the check failed).  Any I/O errors are
+    logged but never propagate — the cache is informational only.
+    """
+    dest = check.dest_folder
+    if dest is None or not dest.exists():
+        return
+    info: dict[str, object] = {
+        "app_name": check.cfg.name,
+        "source_type": source_type(check.cfg),
+        "last_checked": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "tag": check.tag,
+        "download_url": check.download_url,
+        "filename": filename,
+        "status": check.status.name,
+    }
+    if check.error_message:
+        info["error_message"] = check.error_message
+
+    # Merge with existing data so we don't lose the filename from a
+    # previous download when re-running a check-only pass.
+    info_path = dest / APP_INFO_FILE
+    if info_path.exists():
+        try:
+            existing: dict[str, object] = json.loads(
+                info_path.read_text(encoding="utf-8")
+            )
+            if filename is None and existing.get("filename"):
+                info["filename"] = existing["filename"]
+        except (json.JSONDecodeError, OSError):
+            pass  # corrupt or unreadable — overwrite
+
+    try:
+        info_path.write_text(
+            json.dumps(info, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("Could not write %s: %s", info_path, exc)
+
+
+# ---------------------------------------------------------------------------
 # Phase 1: check
 # ---------------------------------------------------------------------------
 
@@ -877,7 +965,9 @@ def check_all(configs: List[AppConfig], root: Path) -> List[CheckResult]:
             status.update(
                 f"[bold cyan]Checking {cfg.name} ({i}/{len(configs)})..."
             )
-            results.append(check_one(cfg, root))
+            result = check_one(cfg, root)
+            results.append(result)
+            write_app_info(result)
     return results
 
 
@@ -1131,6 +1221,9 @@ def run_downloads(
         result = download_fn(check, aux_dir)
         results.append(result)
         _print_download_result(result, verb)
+        if result.success and check.dest_folder is not None:
+            fname = _newest_file_in(check.dest_folder)
+            write_app_info(check, filename=fname)
     return results
 
 
