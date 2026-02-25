@@ -353,6 +353,88 @@
     "name": "IntelBurnTest",
     "page_url": "https://intelburntest.en.lo4d.com/download/mirror-hs1",
     "portable_regex": "https://www.lo4d.com/get-file/intelburntest/"
+  },
+
+  // ─── Additional GitHub apps ────────────────────────────────────────────
+  {
+    "name": "BCUninstaller",
+    "github_repo": "Klocman/Bulk-Crap-Uninstaller",
+    "portable_regex": "BCUninstaller_[\\d.]+_portable\\.zip",
+    "installer_regex": "BCUninstaller_[\\d.]+_setup\\.exe"
+  },
+  {
+    "name": "ShareX",
+    "github_repo": "ShareX/ShareX",
+    "portable_regex": "ShareX-[\\d.]+-portable\\.zip",
+    "installer_regex": "ShareX-[\\d.]+-setup\\.exe"
+  },
+  {
+    "name": "WinMerge",
+    "github_repo": "WinMerge/winmerge",
+    "portable_regex": "winmerge-[\\d.]+-x64-exe\\.zip",
+    "installer_regex": "WinMerge-[\\d.]+-x64-Setup\\.exe"
+  },
+  {
+    // Rolling "latest" tag with Windows static GPL builds
+    "name": "FFmpeg",
+    "github_repo": "BtbN/FFmpeg-Builds",
+    "portable_regex": "ffmpeg-n[\\d.]+-latest-win64-gpl-[\\d.]+\\.zip"
+  },
+
+  // ─── Additional winget-only apps ───────────────────────────────────────
+  {
+    "name": "WizTree",
+    "installer_winget_id": "AntibodySoftware.WizTree"
+  },
+  {
+    // Portable single EXE delivered via winget
+    "name": "OO-ShutUp10",
+    "installer_winget_id": "OO-Software.ShutUp10"
+  },
+  {
+    "name": "GPU-Z",
+    "installer_winget_id": "TechPowerUp.GPU-Z"
+  },
+  {
+    "name": "DDU",
+    "installer_winget_id": "Wagnardsoft.DisplayDriverUninstaller"
+  },
+  {
+    "name": "NVCleanstall",
+    "installer_winget_id": "TechPowerUp.NVCleanstall"
+  },
+  {
+    "name": "Wireshark",
+    "installer_winget_id": "WiresharkFoundation.Wireshark"
+  },
+  {
+    "name": "Nmap",
+    "installer_winget_id": "Insecure.Nmap"
+  },
+  {
+    "name": "Malwarebytes",
+    "installer_winget_id": "Malwarebytes.Malwarebytes"
+  },
+  {
+    "name": "PowerToys",
+    "installer_winget_id": "Microsoft.PowerToys"
+  },
+  {
+    "name": "FastCopy",
+    "installer_winget_id": "FastCopy.FastCopy"
+  },
+  {
+    // Portable ZIP delivered via winget
+    "name": "TestDisk",
+    "installer_winget_id": "CGSecurity.TestDisk"
+  },
+  {
+    "name": "Python3",
+    "installer_winget_id": "Python.Python.3.13"
+  },
+  {
+    "name": "HxD",
+    "installer_winget_id": "MHNexus.HxD"
   }
 
   // ─── Unavailable / manual-only (no reliable automated source) ──────────
