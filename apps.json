@@ -435,6 +435,57 @@
   {
     "name": "HxD",
     "installer_winget_id": "MHNexus.HxD"
+  },
+
+  // ─── Stress testing / Burn-in / Benchmarks ─────────────────────────────
+  {
+    // Gold standard Pi-computation stress test (AVX2/AVX-512)
+    "name": "y-cruncher",
+    "github_repo": "Mysticial/y-cruncher",
+    "portable_regex": "y-cruncher\\.v[0-9.]+[a-z]*\\.zip$"
+  },
+  {
+    "name": "Cinebench-R23",
+    "installer_winget_id": "Maxon.CinebenchR23"
+  },
+  {
+    "name": "WhyNotWin11",
+    "github_repo": "rcmaehl/WhyNotWin11",
+    "portable_regex": "WhyNotWin11\\.zip$"
+  },
+  {
+    "name": "Unigine-Heaven",
+    "installer_winget_id": "Unigine.HeavenBenchmark"
+  },
+  {
+    "name": "Unigine-Superposition",
+    "installer_winget_id": "Unigine.SuperpositionBenchmark"
+  },
+  {
+    "name": "ThrottleStop",
+    "installer_winget_id": "TechPowerUp.ThrottleStop"
+  },
+
+  // ─── Networking ────────────────────────────────────────────────────────
+  {
+    // Windows builds of iperf3
+    "name": "iperf3",
+    "github_repo": "ar51an/iperf3-win-builds",
+    "portable_regex": "iperf-[0-9.]+-win64\\.zip$"
+  },
+
+  // ─── System audit / NirSoft tools ──────────────────────────────────────
+  {
+    // Recovers Windows/Office product keys; stable always-latest URLs
+    "name": "NirSoft-ProduKey",
+    "portable_url": "https://www.nirsoft.net/utils/produkey-x64.zip",
+    "installer_url": "https://www.nirsoft.net/utils/produkey_setup.exe"
+  },
+  {
+    // Analyzes BSOD minidump files
+    "name": "NirSoft-BlueScreenView",
+    "portable_url": "https://www.nirsoft.net/utils/bluescreenview-x64.zip",
+    "installer_winget_id": "NirSoft.BlueScreenView"
   }
 
   // ─── Unavailable / manual-only (no reliable automated source) ──────────
