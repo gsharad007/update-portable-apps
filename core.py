@@ -805,8 +805,47 @@ def _copy_plain_file(archive: Path, dest: Path) -> None:
         raise AppError("destination in use or locked") from exc
 
 
+def _flatten_single_subfolder(dest: Path) -> None:
+    """If *dest* contains exactly one subfolder and no other files, move its
+    contents up one level so the structure is cleaner.
+
+    Many archives wrap everything in a top-level directory like
+    ``ffmpeg-n7.1-latest-win64-gpl-7.1/`` — this removes that redundant nesting.
+    """
+    entries = [
+        p for p in dest.iterdir()
+        if p.name not in {APP_INFO_FILE, ".DS_Store", "Thumbs.db"}
+    ]
+    if len(entries) != 1 or not entries[0].is_dir():
+        return  # multiple items or a single file — nothing to flatten
+
+    inner = entries[0]
+    logger.debug("Flattening single subfolder %s/ -> %s/", inner.name, dest.name)
+
+    # Move everything from inner/ to dest/ via a temporary rename to avoid
+    # collisions (inner is inside dest).
+    tmp = dest.with_name(dest.name + ".__flatten_tmp__")
+    try:
+        inner.rename(tmp)
+        for child in tmp.iterdir():
+            child.rename(dest / child.name)
+        tmp.rmdir()
+    except OSError as exc:
+        logger.warning("Flatten failed for %s: %s", dest.name, exc)
+        if tmp.exists():
+            try:
+                tmp.rename(inner)
+            except OSError:
+                pass
+
+
 def extract_archive(archive: Path, dest: Path) -> None:
-    """Extract *archive* (zip / tar / 7z / plain file) into *dest*."""
+    """Extract *archive* (zip / tar / 7z / plain file) into *dest*.
+
+    After extraction, if the archive contained a single top-level directory,
+    its contents are moved up so that *dest* directly contains the app files
+    (no redundant nesting).
+    """
     logger.debug("Extracting %s -> %s", archive, dest)
     dest.mkdir(parents=True, exist_ok=True)
     suffix = archive.suffix.lower()
@@ -818,6 +857,7 @@ def extract_archive(archive: Path, dest: Path) -> None:
         _extract_7z(archive, dest)
     else:
         _copy_plain_file(archive, dest)
+    _flatten_single_subfolder(dest)
 
 
 # ---------------------------------------------------------------------------

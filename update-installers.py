@@ -76,9 +76,9 @@ def _download_only(check: CheckResult, _aux: Path) -> DownloadResult:
 
 def main(argv: Optional[List[str]] = None) -> None:
     """Program entry-point."""
-    args = arg_parser(
-        "Download installer apps declared in apps.json"
-    ).parse_args(argv)
+    p = arg_parser("Download installer apps declared in apps.json")
+    p.set_defaults(download_dir=str(Path.cwd() / "Installers"))
+    args = p.parse_args(argv)
 
     dl_dir = Path(args.download_dir)
 

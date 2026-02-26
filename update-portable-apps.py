@@ -78,9 +78,9 @@ def _download_and_extract(check: CheckResult, temp_dir: Path) -> DownloadResult:
 
 def main(argv: Optional[List[str]] = None) -> None:
     """Program entry-point."""
-    args = arg_parser(
-        "Download & install portable apps declared in apps.json"
-    ).parse_args(argv)
+    p = arg_parser("Download & install portable apps declared in apps.json")
+    p.set_defaults(download_dir=str(Path.cwd() / "PortableApps"))
+    args = p.parse_args(argv)
 
     dl_dir = Path(args.download_dir)
 
